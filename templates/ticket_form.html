@@ -1,0 +1,99 @@
+{% extends "base_public.html" %}
+{% block title %}{{ 'تقديم طلب دعم فني' if lang == 'ar' else 'Submit IT Support Request' }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="page-title">{{ 'تقديم طلب دعم فني' if lang == 'ar' else 'Submit an IT Support Request' }}</h1>
+  <p class="page-sub">
+    {{ 'هذا النموذج مخصص للمعلمين والمعلمات المسجلين في القائمة المعتمدة فقط.' if lang == 'ar'
+       else 'This form is only for teachers on the approved roster.' }}
+  </p>
+
+  <form method="post" action="/ticket?lang={{ lang }}" enctype="multipart/form-data" novalidate>
+    <label for="teacher_name">{{ 'اسم المعلم/ة' if lang == 'ar' else 'Teacher Name' }} <span style="color:var(--red)">*</span></label>
+    <input type="text" id="teacher_name" name="teacher_name" list="teacherNames" autocomplete="off"
+           value="{{ form.teacher_name if form else '' }}"
+           placeholder="{{ 'اكتب اسمك كما هو مسجل لدى الإدارة' if lang == 'ar' else 'Type your name exactly as registered' }}"
+           aria-label="{{ 'اسم المعلم أو المعلمة مقدم الطلب' if lang == 'ar' else 'Name of the requesting teacher' }}" required>
+    <datalist id="teacherNames"></datalist>
+    {% if errors and errors.teacher_name %}<div class="field-error">{{ errors.teacher_name }}</div>{% endif %}
+    <div class="hint">{{ 'إن لم يظهر اسمك، يرجى التواصل مع الإدارة لإضافتك إلى قائمة المعلمين أولاً.' if lang == 'ar'
+                          else "If your name doesn't match, contact the administration to be added to the teacher list first." }}</div>
+
+    <label for="category_id">{{ 'التصنيف' if lang == 'ar' else 'Category' }} <span style="color:var(--red)">*</span></label>
+    <select id="category_id" name="category_id" aria-label="{{ 'تصنيف المشكلة' if lang == 'ar' else 'Issue category' }}" required></select>
+    {% if errors and errors.category_id %}<div class="field-error">{{ errors.category_id }}</div>{% endif %}
+
+    <label for="category_item_id">{{ 'التحديد الفرعي' if lang == 'ar' else 'Sub-category' }}</label>
+    <select id="category_item_id" name="category_item_id" aria-label="{{ 'التحديد الفرعي للتصنيف' if lang == 'ar' else 'Category sub-item' }}"></select>
+    {% if errors and errors.category_item_id %}<div class="field-error">{{ errors.category_item_id }}</div>{% endif %}
+
+    <label for="subject">{{ 'موضوع المشكلة' if lang == 'ar' else 'Subject' }} <span style="color:var(--red)">*</span></label>
+    <input type="text" id="subject" name="subject" maxlength="300" value="{{ form.subject if form else '' }}"
+           placeholder="{{ 'مثال: لا تعمل شاشة العرض في الصف 5أ' if lang == 'ar' else 'e.g. Projector screen not working in room 5A' }}"
+           aria-label="{{ 'موضوع مختصر للمشكلة' if lang == 'ar' else 'Short subject of the issue' }}" required>
+    {% if errors and errors.subject %}<div class="field-error">{{ errors.subject }}</div>{% endif %}
+
+    <label for="description">{{ 'تفاصيل المشكلة' if lang == 'ar' else 'Description' }}</label>
+    <textarea id="description" name="description"
+              placeholder="{{ 'اشرح المشكلة بالتفصيل...' if lang == 'ar' else 'Describe the issue in detail...' }}"
+              aria-label="{{ 'وصف تفصيلي للمشكلة' if lang == 'ar' else 'Detailed description of the issue' }}">{{ form.description if form else '' }}</textarea>
+
+    <label for="location">{{ 'الموقع (اختياري)' if lang == 'ar' else 'Location (optional)' }}</label>
+    <input type="text" id="location" name="location" value="{{ form.location if form else '' }}"
+           placeholder="{{ 'مثال: مبنى الثانوية - الصف 5أ' if lang == 'ar' else 'e.g. Secondary Building - Room 5A' }}"
+           aria-label="{{ 'موقع أو غرفة المشكلة' if lang == 'ar' else 'Location or room of the issue' }}">
+
+    <label for="attachments">{{ 'مرفقات (اختياري)' if lang == 'ar' else 'Attachments (optional)' }}</label>
+    <input type="file" id="attachments" name="attachments" multiple
+           aria-label="{{ 'إرفاق صور أو ملفات توضح المشكلة' if lang == 'ar' else 'Attach photos or files showing the issue' }}">
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="urgent" name="urgent" value="1">
+      <label for="urgent" style="margin:0">{{ 'طلب عاجل' if lang == 'ar' else 'Mark as urgent' }}</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" title="{{ 'إرسال طلب الدعم' if lang == 'ar' else 'Send the support request' }}">
+      <i class="fas fa-paper-plane"></i> {{ 'إرسال الطلب' if lang == 'ar' else 'Submit Request' }}
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const LANG = "{{ lang }}";
+const SELECTED_CATEGORY_ID = {{ (form.category_id if form else '') or 'null' }};
+const SELECTED_ITEM_ID = {{ (form.category_item_id if form else '') or 'null' }};
+
+fetch('/api/teacher-names').then(r => r.json()).then(names => {
+  const dl = document.getElementById('teacherNames');
+  dl.innerHTML = names.map(n => `<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+});
+
+let CATEGORIES = [];
+fetch('/api/categories').then(r => r.json()).then(cats => {
+  CATEGORIES = cats;
+  const sel = document.getElementById('category_id');
+  sel.innerHTML = `<option value="">${LANG === 'ar' ? '-- اختر تصنيفاً --' : '-- Select a category --'}</option>` +
+    cats.map(c => `<option value="${c.id}">${LANG === 'ar' ? c.nameAr : c.nameEn}</option>`).join('');
+  if (SELECTED_CATEGORY_ID) { sel.value = SELECTED_CATEGORY_ID; renderItems(); }
+});
+
+function renderItems() {
+  const catId = parseInt(document.getElementById('category_id').value, 10);
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const sel = document.getElementById('category_item_id');
+  const items = (cat && cat.items) ? cat.items.filter(i => i.active) : [];
+  if (!items.length) {
+    sel.innerHTML = `<option value="">${LANG === 'ar' ? '(لا يوجد)' : '(none)'}</option>`;
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">${LANG === 'ar' ? '-- اختر --' : '-- Select --'}</option>` +
+    items.map(i => `<option value="${i.id}">${LANG === 'ar' ? i.nameAr : i.nameEn}${i.code ? ' ('+i.code+')' : ''}</option>`).join('');
+  if (SELECTED_ITEM_ID) sel.value = SELECTED_ITEM_ID;
+}
+document.getElementById('category_id').addEventListener('change', renderItems);
+</script>
+{% endblock %}
