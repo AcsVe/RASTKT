@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: acs-ticketing
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers=1 --bind=0.0.0.0:$PORT --timeout=120
+    disk:
+      name: acs-tickets-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASS
+        value: acs2024
+      - key: ORG_AR
+        value: مدرسة الرائد العربي
+      - key: ORG_EN
+        value: Al-Raed Al-Arabi School
+      - key: LOGO_URL
+        value: /static/logo.png
+      - key: MS_TENANT_ID
+        value: ""
+      - key: MS_CLIENT_ID
+        value: ""
+      - key: MS_CLIENT_SECRET
+        value: ""
+      - key: MS_SENDER_EMAIL
+        value: ""
