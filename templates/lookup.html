@@ -1,0 +1,21 @@
+{% extends "base_public.html" %}
+{% block title %}{{ 'استعلام عن تذكرة' if lang == 'ar' else 'Ticket Lookup' }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="page-title">{{ 'الاستعلام عن حالة تذكرة' if lang == 'ar' else 'Look Up a Ticket' }}</h1>
+  <p class="page-sub">
+    {{ 'أدخل رقم الاستعلام الذي وصلك عبر البريد الإلكتروني عند تقديم الطلب.' if lang == 'ar'
+       else 'Enter the tracking code you received by email when you submitted the request.' }}
+  </p>
+  {% if error %}<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>{% endif %}
+  <form method="post" action="/lookup?lang={{ lang }}">
+    <label for="tracking_code">{{ 'رقم الاستعلام' if lang == 'ar' else 'Tracking Code' }}</label>
+    <input type="text" id="tracking_code" name="tracking_code" required style="text-transform:uppercase;letter-spacing:2px;font-weight:700"
+           placeholder="{{ 'مثال: AB12CDE' if lang == 'ar' else 'e.g. AB12CDE' }}"
+           aria-label="{{ 'رقم الاستعلام عن التذكرة' if lang == 'ar' else 'Ticket tracking code' }}">
+    <button type="submit" class="btn btn-primary btn-block" title="{{ 'عرض حالة التذكرة' if lang == 'ar' else 'View ticket status' }}">
+      <i class="fas fa-search"></i> {{ 'استعلام' if lang == 'ar' else 'Look Up' }}
+    </button>
+  </form>
+</div>
+{% endblock %}
