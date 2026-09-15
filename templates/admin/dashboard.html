@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ 'لوحة التحكم' if lang == 'ar' else 'Control Panel' }} — {{ config.ORG_AR }}</title>
+
+<link rel="manifest" href="/static/manifest-admin.json">
+<meta name="theme-color" content="#1B3358">
+<link rel="icon" href="/static/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ 'إدارة الطلبات' if lang == 'ar' else 'Ticket Admin' }}">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<style>
+:root {
+  --primary: #FF5733; --primary-dark: #C43D1F; --primary-light: #FF8563;
+  --secondary: #2E4E7A; --secondary-dark: #1B3358; --secondary-light: #5A7CA8;
+  --accent: {{ config.ACCENT_COLOR }};
+  --bg: #f0f4f5; --white: #fff; --text: #1e2a2b; --muted: #6b7c7e;
+  --border: #d4e4e6; --radius: 12px; --sidebar: 240px;
+  --shadow: 0 2px 12px rgba(255,87,51,.10);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Tajawal', sans-serif; color: var(--text); height: 100vh; overflow: hidden;
+  /* Very soft sky-blue glow anchored to the true top of the viewport,
+     fading into the normal page background — admin-only touch. */
+  background: linear-gradient(180deg, #e4f4fb 0%, var(--bg) 480px, var(--bg) 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+/* Nothing scrolls at the body level any more — the sidebar and .main are
+   both fixed panes, and .content is the only actual scrolling region
+   (see .main above) — so overflow:hidden here just prevents a pointless
+   second/outer scrollbar from ever appearing. */
+
+/* The ticker must never cover the sidebar — like an Excel frozen column,
+   the sidebar is its own fixed, full-height region, and the ticker (like
+   a frozen header) only ever spans the remaining scrollable area next to
+   it. inset-inline-start automatically respects the current language's
+   direction, same as --sidebar flips side via .sidebar's own logical
+   inset-inline-start. */
+#globalTicker, body #globalTicker { inset-inline-start: var(--sidebar); }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar);
+  background: linear-gradient(180deg, var(--secondary-dark), var(--secondary));
+  color: #fff; display: flex; flex-direction: column;
+  position: fixed; top: 0; inset-inline-start: 0; bottom: 0; z-index: 150;
+  overflow-y: auto;
+}
+.sidebar-logo { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.15); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.sidebar-logo-chip { background: #fff; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; width: 100%; box-sizing: border-box; }
+.sidebar-logo-chip img { height: 40px; max-width: 100%; object-fit: contain; display: block; }
+.sidebar-logo-text { font-size: .8rem; font-weight: 600; opacity: .85; }
+.sidebar-staff { font-size: .72rem; opacity: .7; }
+.sidebar-nav { flex: 1; padding: 6px 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 18px; cursor: pointer;
+  font-size: .92rem; font-weight: 600; color: rgba(255,255,255,.8);
+  transition: all .2s; border: none; background: none; width: 100%; text-align: start; font-family: inherit;
+}
+.nav-item:hover, .nav-item.active { background: rgba(255,255,255,.15); color: #fff; }
+.nav-item i { width: 20px; text-align: center; }
+.nav-badge { margin-inline-start: auto; background: var(--accent); color: #1e2a2b; border-radius: 10px; padding: 1px 8px; font-size: .72rem; font-weight: 800; }
+.sidebar-footer { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,.15); display: flex; flex-direction: column; gap: 4px; }
+.sidebar-footer a, .sidebar-footer button {
+  display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,.7);
+  text-decoration: none; font-size: .85rem; font-weight: 600; padding: 6px 0;
+  background: none; border: none; cursor: pointer; font-family: inherit; width: 100%; text-align: start;
+}
+.sidebar-footer a:hover, .sidebar-footer button:hover { color: #fff; }
+.sidebar-footer #notifyBellBtn.active { color: #27ae60; }
+.sidebar-footer #notifyBellBtn.active i { color: #27ae60; }
+
+/* Main */
+/* .main is its own fixed pane next to the sidebar — like Excel's frozen
+   panes, everything here (topbar, ticker's row) stays put, and only
+   .content actually scrolls, so page content can never scroll up behind
+   the fixed ticker no matter how far down the list goes. */
+.main {
+  position: fixed; top: 0; inset-inline-start: var(--sidebar); inset-inline-end: 0; bottom: 0;
+  display: flex; flex-direction: column;
+}
+body.has-ticker .main { top: 38px; }
+.topbar { background: #fff; padding: 14px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.topbar h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--primary); font-size: 1.4rem; padding: 4px 8px; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 140; }
+.sidebar-overlay.open { display: block; }
+.content { flex: 1; padding: 24px; overflow-y: auto; }
+
+/* Tabs */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #fff; border-radius: var(--radius); padding: 18px; text-align: center; box-shadow: var(--shadow); border-top: 4px solid var(--primary); cursor: pointer; }
+.stat-card.accent { border-top-color: var(--accent); }
+.stat-card.green  { border-top-color: #27ae60; }
+.stat-card.red    { border-top-color: #c0392b; }
+.stat-card.orange { border-top-color: #e67e22; }
+.stat-val { font-size: 2rem; font-weight: 800; color: var(--primary); }
+.stat-card.accent .stat-val { color: #a06020; }
+.stat-card.green  .stat-val { color: #27ae60; }
+.stat-card.red    .stat-val { color: #c0392b; }
+.stat-card.orange .stat-val { color: #e67e22; }
+.stat-label { font-size: .8rem; color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+/* Cards */
+.card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 18px; }
+.card-title { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+/* Filters */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.filter-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); transition: all .2s; }
+.filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.search-input { padding: 7px 12px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: .88rem; min-width: 200px; }
+select.plain { padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: .85rem; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+th { background: #f0f7f8; color: var(--primary); font-weight: 700; padding: 10px 12px; text-align: start; white-space: nowrap; cursor: pointer; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: #fafefe; }
+.badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 20px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.badge-open        { background: #fff3cd; color: #856404; }
+.badge-in_progress  { background: #cfe2ff; color: #0b3d91; }
+.badge-waiting      { background: #ffe5d0; color: #a3540c; }
+.badge-closed       { background: #d1e7dd; color: #0a6640; }
+.badge-role         { background: #eef3f5; color: var(--secondary-dark); }
+.priority-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; }
+.priority-low .priority-dot    { background: #95a5a6; }
+.priority-medium .priority-dot { background: #3498db; }
+.priority-high .priority-dot   { background: #c0392b; }
+.priority-high { color: #c0392b; font-weight: 800; }
+
+/* Actions */
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: .8rem; font-weight: 600; text-decoration: none; transition: all .2s; white-space: nowrap; margin-inline-end: 3px; }
+.btn-green   { background: #d1e7dd; color: #0a6640; }
+.btn-red     { background: #f8d7da; color: #842029; }
+.btn-orange  { background: #fff3cd; color: #856404; }
+.btn-blue    { background: #cff4fc; color: #055160; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-sm { padding: 5px 10px; font-size: .78rem; }
+.btn:hover { filter: brightness(.93); }
+
+/* Forms */
+label { display: block; font-weight: 700; margin-bottom: 5px; font-size: .85rem; }
+.form-group { margin-bottom: 14px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+input[type=text], input[type=email], input[type=password], input[type=tel], input[type=file],
+select, textarea {
+  width: 100%; padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: .88rem; background: #fff; color: var(--text); transition: border-color .2s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,87,51,.1); }
+textarea { resize: vertical; min-height: 70px; }
+input[type=checkbox] { width: auto; accent-color: var(--primary); }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 12px; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; box-shadow: 0 12px 50px rgba(0,0,0,.22); }
+.modal-title { font-size: 1.05rem; font-weight: 800; color: var(--primary); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+.modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; left: 24px; z-index: 9999; background: #1e2a2b; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: .9rem; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,.25); transform: translateY(100px); opacity: 0; transition: all .3s; }
+html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left: auto; right: auto; }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* Comments */
+.comment { border-inline-start: 3px solid var(--primary); background: #fdf2ee; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; }
+.comment.internal { border-inline-start-color: #e67e22; background: #fef9f0; }
+.comment .meta { font-size: .7rem; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
+.comment .body { white-space: pre-wrap; font-size: .84rem; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 10px 0; font-size: .84rem; }
+.detail-grid .k { color: var(--muted); font-weight: 700; font-size: .72rem; }
+
+@media (max-width: 768px) {
+  :root { --sidebar: 0px; }
+  .sidebar { position: fixed !important; top: 0; inset-inline-start: 0; bottom: 0; width: 82vw !important; max-width: 300px; transform: translateX(105%) !important; transition: transform .28s cubic-bezier(.4,0,.2,1); z-index: 300; }
+  html[dir="ltr"] .sidebar { transform: translateX(-105%) !important; }
+  html[dir="ltr"] .sidebar.open { transform: translateX(0) !important; }
+  .sidebar.open { transform: translateX(0) !important; }
+  .main { max-width: 100vw; }
+  .hamburger { display: inline-flex !important; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .content { padding: 12px !important; }
+  .topbar { padding: 10px 14px !important; }
+  .table-wrap table { min-width: 480px; font-size: .8rem; }
+  .stat-card { padding: 14px 10px; }
+  .stat-val { font-size: 1.6rem; }
+  table, thead, tbody, th, td, tr { display: block; }
+  .table-wrap thead { display: none; }
+  .table-wrap tbody tr { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; padding: 6px; }
+  .table-wrap td { border: none; padding: 5px 8px; }
+  .table-wrap td:before { content: attr(data-label); font-weight: 800; color: var(--muted); display: inline-block; min-width: 90px; font-size: .7rem; }
+}
+</style>
+</head>
+<body>
+{% include "_ticker.html" %}
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    {% if config.LOGO_URL %}<div class="sidebar-logo-chip"><img src="{{ config.LOGO_URL }}" alt="logo"></div>{% endif %}
+    <div class="sidebar-logo-text" id="sbTitle"></div>
+    <div class="sidebar-staff" id="sbStaff"></div>
+  </div>
+  <div class="sidebar-nav">
+    <button class="nav-item active" onclick="showTab('tickets')" data-tab="tickets"><i class="fas fa-ticket-alt"></i> <span id="navTicketsLbl"></span> <span class="nav-badge" id="nbOpen">0</span></button>
+    <button class="nav-item" onclick="showTab('categories')" data-tab="categories" id="navCatBtn"><i class="fas fa-tags"></i> <span id="navCatLbl"></span></button>
+    <button class="nav-item" onclick="showTab('teachers')" data-tab="teachers" id="navTeachBtn"><i class="fas fa-chalkboard-teacher"></i> <span id="navTeachLbl"></span></button>
+    <button class="nav-item" onclick="showTab('staff')" data-tab="staff" id="navStaffBtn" style="display:none"><i class="fas fa-users-cog"></i> <span id="navStaffLbl"></span></button>
+    <button class="nav-item" onclick="showTab('settings')" data-tab="settings" id="navSettingsBtn" style="display:none"><i class="fas fa-cog"></i> <span id="navSettingsLbl"></span></button>
+    <button class="nav-item" onclick="showTab('ticker')" data-tab="ticker" id="navTickerBtn" style="display:none"><i class="fas fa-bullhorn"></i> <span id="navTickerLbl"></span></button>
+  </div>
+  <div class="sidebar-footer">
+    <a href="/?lang={{ lang }}" target="_blank"><i class="fas fa-globe"></i> <span id="sbHomeLbl"></span></a>
+    <button id="notifyBellBtn" onclick="requestNotifyPermission()"><i class="fas fa-bell"></i> <span id="sbBellLbl"></span></button>
+    <a href="#" onclick="toggleLang();return false"><i class="fas fa-language"></i> <span id="sbLangLbl"></span></a>
+    <a href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"><i class="fas fa-download"></i> <span id="sbInstallLbl"></span></a>
+    <a href="/admin/logout"><i class="fas fa-sign-out-alt"></i> <span id="sbLogoutLbl"></span></a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <h1 id="pageTitle"></h1>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-outline btn-sm" onclick="refreshAll()"><i class="fas fa-sync"></i> <span id="refreshLbl"></span></button>
+      <span style="font-size:.85rem;color:var(--muted)" id="clockEl"></span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── TICKETS TAB ── -->
+    <div class="tab-panel active" id="tab-tickets">
+      <div class="stats-grid" id="statCards"></div>
+      <div class="card">
+        <div class="filter-bar">
+          <input type="text" class="search-input" id="searchBox" oninput="renderTickets()" placeholder="">
+          <select class="plain" id="filterCategory" onchange="loadTickets()"></select>
+          <select class="plain" id="filterAssignee" onchange="loadTickets()" style="display:none"></select>
+          <select class="plain" id="filterPriority" onchange="loadTickets()"></select>
+          <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:600;font-size:.85rem">
+            <input type="checkbox" id="filterArchived" onchange="loadTickets()"> <span id="archivedLbl"></span>
+          </label>
+        </div>
+        <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="sortBy('serial')" id="thSerial"></th>
+            <th onclick="sortBy('teacherName')" id="thTeacher"></th>
+            <th onclick="sortBy('category')" id="thCategory"></th>
+            <th onclick="sortBy('subject')" id="thSubject"></th>
+            <th onclick="sortBy('priority')" id="thPriority"></th>
+            <th onclick="sortBy('assigneeName')" id="thAssignee"></th>
+            <th onclick="sortBy('status')" id="thStatus"></th>
+            <th onclick="sortBy('createdAt')" id="thDate"></th>
+            <th onclick="sortBy('createdAt')" id="thTime"></th>
+            <th id="thActions"></th>
+          </tr></thead>
+          <tbody id="ticketsBody"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CATEGORIES TAB ── -->
+    <div class="tab-panel" id="tab-categories">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-plus"></i> <span id="addCatTitle"></span></div>
+        <div class="form-grid">
+          <div class="form-group"><label id="lblCatAr"></label><input type="text" id="newCatAr"></div>
+          <div class="form-group"><label id="lblCatEn"></label><input type="text" id="newCatEn"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addCategory()"><i class="fas fa-plus"></i> <span id="addCatBtn"></span></button>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-upload"></i> <span id="catUploadTitle"></span></div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="catUploadHint"></p>
+        <input type="file" id="catFile" accept=".csv,.txt" onchange="uploadCategories(this)">
+      </div>
+      <div id="categoriesList"></div>
+    </div>
+
+    <!-- ── TEACHERS TAB ── -->
+    <div class="tab-panel" id="tab-teachers">
+      <div class="card" id="addTeacherCard">
+        <div class="card-title"><i class="fas fa-chalkboard-teacher"></i> <span id="addTeacherTitle"></span></div>
+        <div class="form-grid">
+          <div class="form-group"><label id="lblTName"></label><input type="text" id="newTeacherName"></div>
+          <div class="form-group"><label id="lblTEmail"></label><input type="email" id="newTeacherEmail" dir="ltr"></div>
+          <div class="form-group"><label id="lblTPhone"></label><input type="tel" id="newTeacherPhone" dir="ltr"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addTeacher()"><i class="fas fa-plus"></i> <span id="addTeacherBtn"></span></button>
+      </div>
+      <div class="card" id="teacherUploadCard">
+        <div class="card-title"><i class="fas fa-upload"></i> <span id="teachUploadTitle"></span></div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="teachUploadHint"></p>
+        <input type="file" id="teacherFile" accept=".csv,.txt" onchange="uploadTeachers(this)">
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-list"></i> <span id="teacherListTitle"></span></div>
+        <div class="filter-bar">
+          <input type="text" class="search-input" id="teacherSearchBox" oninput="renderTeachers()" placeholder="">
+          <span id="teacherSelCount" style="font-size:.82rem;color:var(--muted)"></span>
+          <button class="btn btn-red btn-sm" id="teacherBulkDeleteBtn" onclick="bulkDeleteTeachers()" style="display:none">
+            <i class="fas fa-trash"></i> <span id="teacherBulkDeleteLbl"></span>
+          </button>
+        </div>
+        <div class="table-wrap">
+        <table><thead><tr>
+          <th><input type="checkbox" id="teacherSelectAll" onchange="toggleAllTeachers(this)"></th>
+          <th id="thTName"></th><th id="thTEmail"></th><th id="thTPhone"></th><th id="thTActive"></th><th id="thTActions"></th>
+        </tr></thead><tbody id="teachersBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STAFF TAB (Administrator only) ── -->
+    <div class="tab-panel" id="tab-staff">
+      <div class="card" id="addStaffCard">
+        <div class="card-title"><i class="fas fa-user-plus"></i> <span id="addStaffTitle"></span></div>
+        <div class="form-grid">
+          <div class="form-group"><input type="text" id="newStaffUsername"></div>
+          <div class="form-group"><input type="text" id="newStaffFullName"></div>
+          <div class="form-group"><input type="email" id="newStaffEmail"></div>
+          <div class="form-group"><input type="password" id="newStaffPassword"></div>
+          <div class="form-group"><select id="newStaffRole"></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="addStaff()"><i class="fas fa-plus"></i> <span id="addStaffBtn"></span></button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+        <table><thead><tr>
+          <th id="thSName"></th><th id="thSUser"></th><th id="thSRole"></th><th id="thSActive"></th><th id="thSActions"></th>
+        </tr></thead><tbody id="staffBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS TAB (System Admin & Administrator) ── -->
+    <div class="tab-panel" id="tab-settings">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-user-clock"></i> <span id="extSubTitle"></span></div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px" id="extSubHint"></p>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700">
+          <input type="checkbox" id="allowExternalToggle" onchange="onToggleExternal(this)">
+          <span id="extSubToggleLbl"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── TICKER TAB (System Admin & Administrator) — scrolling marquee ── -->
+    <div class="tab-panel" id="tab-ticker">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-bullhorn"></i> <span id="tickerCardTitle"></span></div>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:14px">
+          <input type="checkbox" id="tickerEnabled">
+          <span id="tickerEnabledLbl"></span>
+        </label>
+
+        <label id="tickerContentLbl"></label>
+        <div id="tickerQuill" style="background:#fff;min-height:120px"></div>
+        <div class="hint" style="font-size:.78rem;color:var(--muted);margin-top:6px" id="tickerContentHint"></div>
+
+        <label id="tickerContentEnLbl" style="margin-top:16px"></label>
+        <div id="tickerQuillEn" style="background:#fff;min-height:120px" dir="ltr"></div>
+        <div class="hint" style="font-size:.78rem;color:var(--muted);margin-top:6px" id="tickerContentEnHint"></div>
+
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group">
+            <label id="tickerSpeedLbl"></label>
+            <input type="number" id="tickerSpeed" min="5" max="180" step="1">
+            <div class="hint" style="font-size:.76rem;color:var(--muted)" id="tickerSpeedHint"></div>
+          </div>
+          <div class="form-group">
+            <label id="tickerRssLbl"></label>
+            <input type="text" id="tickerRssUrl" dir="ltr" placeholder="https://example.com/feed.xml">
+          </div>
+          <div class="form-group">
+            <label id="tickerRssColorLbl"></label>
+            <input type="color" id="tickerRssColor" style="height:38px;padding:2px;cursor:pointer">
+          </div>
+          <div class="form-group">
+            <label id="tickerRssSizeLbl"></label>
+            <input type="number" id="tickerRssFontSize" min="10" max="40" step="1">
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+          <input type="checkbox" id="tickerRssBold">
+          <span id="tickerRssBoldLbl"></span>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+          <input type="checkbox" id="tickerLogoBetween">
+          <span id="tickerLogoLbl"></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+          <input type="checkbox" id="tickerPulse" onchange="document.getElementById('tickerPulseSpeedRow').style.display = this.checked ? '' : 'none'">
+          <span id="tickerPulseLbl"></span>
+        </label>
+        <div class="form-group" id="tickerPulseSpeedRow" style="display:none;margin-top:8px;max-width:260px">
+          <label id="tickerPulseSpeedLbl"></label>
+          <input type="number" id="tickerPulseSpeed" min="0.3" max="10" step="0.1">
+        </div>
+
+        <div class="form-group" style="margin-top:14px;max-width:260px">
+          <label id="tickerShadowLbl"></label>
+          <select id="tickerShadow">
+            <option value="none" id="tickerShadowNone"></option>
+            <option value="light" id="tickerShadowLight"></option>
+            <option value="strong" id="tickerShadowStrong"></option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:18px" onclick="saveTickerSettings()">
+          <i class="fas fa-save"></i> <span id="tickerSaveLbl"></span>
+        </button>
+        <a class="btn btn-outline" style="margin-top:18px" href="/" target="_blank">
+          <i class="fas fa-eye"></i> <span id="tickerPreviewLbl"></span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Ticket detail modal ("Open Ticket") -->
+<div class="modal-overlay" id="detailModal"><div class="modal" id="detailModalBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+const ME = {{ me|tojson }};
+let AR = '{{ lang }}' !== 'en';
+
+const I18N_EN = {
+  'لوحة التحكم': 'Control Panel', 'التذاكر': 'Tickets', 'التصنيفات': 'Categories',
+  'المعلمون': 'Teachers', 'الموظفون': 'Staff Accounts', 'الصفحة الرئيسية': 'Home',
+  'تفعيل إشعارات التذاكر الجديدة': 'Enable new-ticket notifications',
+  'الإشعارات مفعّلة': 'Notifications enabled', 'خروج': 'Logout', 'تثبيت التطبيق': 'Install App',
+  'EN': 'AR', 'تحديث': 'Refresh', 'تم التحديث': 'Updated',
+  'الإجمالي': 'Total', 'مفتوحة': 'Open', 'قيد المعالجة': 'In Progress', 'مغلقة': 'Closed',
+  'غير معينة': 'Unassigned',
+  'بحث برقم التذكرة، الموضوع، أو اسم المعلم...': 'Search by serial, subject, or teacher name...',
+  'كل التصنيفات': 'All Categories', 'كل الموظفين': 'All Staff', 'غير معينة (فلتر)': 'Unassigned only',
+  'عرض المؤرشفة': 'Show archived',
+  'الرقم': 'Serial', 'المعلم': 'Teacher', 'التصنيف': 'Category', 'الموضوع': 'Subject',
+  'الموظف المسؤول': 'Assignee', 'الحالة': 'Status', 'التاريخ': 'Date', 'إجراءات': 'Actions',
+  'عرض': 'View', 'تعيين': 'Assign', 'إغلاق': 'Close', 'إعادة فتح': 'Reopen', 'أرشفة': 'Archive',
+  'طباعة': 'Print', 'دمج': 'Merge',
+  'إضافة تصنيف جديد': 'Add New Category', 'الاسم بالعربي': 'Name (Arabic)', 'الاسم بالإنجليزي': 'Name (English)',
+  'إضافة': 'Add', 'غير نشط': 'Inactive', 'نشط': 'Active', 'حذف': 'Delete',
+  'رفع قائمة (CSV/TXT)': 'Upload list (CSV/TXT)',
+  'ملف CSV أو TXT — كل سطر: nameAr,nameEn': 'A CSV or TXT file — each line: nameAr,nameEn',
+  'إضافة معلم/ة جديد': 'Add New Teacher', 'الاسم': 'Name', 'البريد الإلكتروني': 'Email', 'الجوال': 'Phone',
+  'ملف CSV أو TXT — كل سطر: name,email,phone': 'A CSV or TXT file — each line: name,email,phone',
+  'قائمة المعلمين': 'Teacher List',
+  'إضافة موظف دعم جديد': 'Add New Staff Account', 'اسم المستخدم': 'Username', 'الاسم الكامل': 'Full Name',
+  'كلمة المرور': 'Password', 'الدور': 'Role', 'دعم فني': 'Technical Support', 'مسؤول نظام': 'System Admin',
+  'مدير عام': 'Administrator', 'مفعّل': 'Active',
+  'لا توجد نتائج': 'No results', 'أدرج معرّفاً (اختياري)': 'Identifier (optional)',
+  'إضافة عنصر فرعي': 'Add sub-item', 'العناصر الفرعية': 'Sub-items',
+  'رفع عناصر فرعية (CSV/TXT)': 'Upload sub-items (CSV/TXT)',
+  'تفاصيل التذكرة': 'Ticket Details', 'إغلاق النافذة': 'Close window',
+  'مقدّم الطلب': 'Requested by', 'البريد': 'Email', 'الهاتف': 'Phone', 'الموقع': 'Location',
+  'الوصف': 'Description', 'نعم': 'Yes', 'لا': 'No',
+  'سجل المتابعة': 'Follow-up Log', 'إضافة تعليق': 'Add Comment', 'ملاحظة داخلية (لا تظهر لمقدم الطلب)': 'Internal note (hidden from requester)',
+  'إرسال': 'Send', 'تعيين إلى': 'Assign to', '-- بلا تعيين --': '-- Unassigned --', 'حفظ التعيين': 'Save Assignment',
+  'تعليق الإغلاق (اختياري)': 'Closing comment (optional)',
+  'أدخل الرقم التسلسلي للتذكرة الأخرى للدمج معها:': "Enter the other ticket's serial number to merge with:",
+  'الدعم الفني': 'IT Support', 'المرفقات': 'Attachments', 'لا توجد تعليقات بعد': 'No comments yet',
+  'هل أنت متأكد من حذف هذا التصنيف؟': 'Delete this category?', 'هل أنت متأكد من حذف هذا العنصر؟': 'Delete this item?',
+  'هل أنت متأكد من حذف هذا المعلم؟': 'Delete this teacher?', 'هل أنت متأكد من تعطيل هذا الحساب؟': 'Deactivate this account?',
+  'يرجى كتابة تعليق': 'Please write a comment', 'حدث خطأ': 'Something went wrong',
+  'تم دمج هذه التذكرة مع #': 'This ticket was merged into #', 'مدمجة': 'Merged',
+  'تمت الإضافة': 'Added', 'تعذّر': 'Skipped', 'المتصفح لا يدعم الإشعارات': 'Browser does not support notifications',
+  'الأولوية': 'Priority', 'الوقت': 'Time', 'منخفضة': 'Low', 'متوسطة': 'Medium', 'عالية': 'High',
+  'كل الأولويات': 'All Priorities', 'أولوية عالية': 'High Priority',
+  'بانتظار الرد': 'Waiting', 'استئناف': 'Resume', 'حفظ': 'Save',
+  'الإعدادات': 'Settings', 'قبول التذاكر من خارج قائمة المعلمين': 'Accept Tickets Outside the Teacher List',
+  'عند التفعيل، يمكن لأي شخص خارج قائمة المعلمين تقديم تذكرة بإدخال اسمه وبريده الإلكتروني.':
+    'When enabled, anyone outside the teacher list can submit a ticket by entering their name and email.',
+  'قبول تذاكر من خارج نطاق المعلمين (On/Off)': 'Accept tickets from outside the teacher list (On/Off)',
+  'المعرّف بالإنجليزي (اختياري)': 'Identifier in English (optional)',
+  'محدد': 'Selected', 'إلغاء': 'Cancel', 'تعديل': 'Edit',
+  'بحث بالاسم أو البريد أو الجوال...': 'Search by name, email, or phone...',
+  'حذف المحدد': 'Delete Selected',
+  'الشريط الإعلاني': 'Announcement Ticker', 'الشريط الإعلاني المتحرك': 'Scrolling Announcement Ticker',
+  'تفعيل الشريط على كل الصفحات': 'Enable the ticker on every page', 'محتوى الشريط': 'Ticker Content',
+  'محتوى الشريط (عربي)': 'Ticker Content (Arabic)', 'محتوى الشريط (إنجليزي)': 'Ticker Content (English)',
+  'يظهر هذا المحتوى فقط عند تصفح الموقع بالإنجليزية — إن تُرك فارغاً يُستخدم المحتوى العربي بدلاً منه.':
+    "This shows only when the site is viewed in English — if left empty, the Arabic content is used instead.",
+  'سرعة النبض (ثواني لكل ومضة)': 'Pulse Speed (seconds per blink)',
+  'ظل النص (لوضوح أفضل)': 'Text Shadow (for better legibility)', 'بدون ظل': 'None', 'ظل خفيف': 'Light', 'ظل قوي': 'Strong',
+  'يمكنك تلوين النص، تنسيق الخط، وإضافة روابط — لكل الفقرة أو لجزء محدد منها.':
+    'You can color text, format the font, and add links — for the whole paragraph or just a selected part.',
+  'سرعة الشريط (ثواني لكل دورة)': 'Ticker Speed (seconds per loop)', 'رقم أصغر = حركة أسرع': 'A smaller number = faster movement',
+  'رابط RSS (اختياري)': 'RSS Feed URL (optional)', 'إظهار الشعار بين فقرات الشريط': 'Show the logo between ticker segments',
+  'لون نص أخبار RSS': 'RSS Text Color',
+  'حجم خط أخبار RSS': 'RSS Font Size (px)', 'خط عريض لأخبار RSS': 'Bold RSS text',
+  'تأثير النبض (وميض)': 'Pulse (blinking) effect', 'معاينة على الموقع': 'Preview on the site',
+  'تم تفعيل الإشعارات — ستصلك حتى لو أغلقت التطبيق ✓': "Notifications enabled — you'll get them even with the app closed ✓",
+  'تم تفعيل الإشعارات بالتطبيق المفتوح ✓': 'Notifications enabled while the app is open ✓',
+  'لم يتم منح إذن الإشعارات': 'Notification permission not granted',
+};
+
+function t(s) { return AR ? s : (I18N_EN[s] || s); }
+
+async function api(url, method, body) {
+  const opts = { method: method || 'GET', headers: {} };
+  if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const r = await fetch(url, opts);
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => null);
+  if (!r.ok) { showToast((data && data.error) || t('حدث خطأ'), '#c0392b'); throw new Error('api error'); }
+  return data;
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Toast ──────────────────────────────────────────────────────────────
+function showToast(msg, color) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = color || '#1e2a2b';
+  el.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Clock ──────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const opts = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', numberingSystem: 'latn' };
+  document.getElementById('clockEl').textContent = now.toLocaleString(AR ? 'ar' : 'en-US', opts);
+}
+setInterval(updateClock, 30000);
+
+// ── Sidebar toggle (mobile) ──────────────────────────────────────────────
+function toggleSidebar() {
+  const isOpen = document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open', isOpen);
+  // The ticker sits behind the dim overlay (correctly, by z-index), but a
+  // scrolling animation still faintly visible through a 50%-opacity
+  // overlay reads as messy/broken — just hide it outright while the menu
+  // is open, on top of everything else, rather than merely dimmed.
+  const ticker = document.getElementById('globalTicker');
+  if (ticker) ticker.style.visibility = isOpen ? 'hidden' : '';
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  const ticker = document.getElementById('globalTicker');
+  if (ticker) ticker.style.visibility = '';
+}
+
+function toggleLang() {
+  AR = !AR;
+  localStorage.setItem('adminLang', AR ? 'ar' : 'en');
+  api('/admin/api/set-lang', 'POST', { lang: AR ? 'ar' : 'en' }).catch(() => {});
+  document.documentElement.lang = AR ? 'ar' : 'en';
+  document.documentElement.dir = AR ? 'rtl' : 'ltr';
+  paintStaticLabels();
+  renderStatCards(); renderTickets(); renderCategories(); renderTeachers(); renderStaff();
+  updateClock();
+  if (window.reloadTicker) window.reloadTicker();
+}
+
+// ── Static label painting ────────────────────────────────────────────────
+function paintStaticLabels() {
+  document.getElementById('sbTitle').textContent = t('لوحة التحكم');
+  document.getElementById('sbStaff').textContent = `${esc(ME.fullName)} — ${esc(AR ? ME.roleLabelAr : ME.roleLabelEn)}`;
+  document.getElementById('navTicketsLbl').textContent = t('التذاكر');
+  document.getElementById('navCatLbl').textContent = t('التصنيفات');
+  document.getElementById('navTeachLbl').textContent = t('المعلمون');
+  document.getElementById('navStaffLbl').textContent = t('الموظفون');
+  document.getElementById('sbHomeLbl').textContent = t('الصفحة الرئيسية');
+  document.getElementById('sbBellLbl').textContent = t('تفعيل إشعارات التذاكر الجديدة');
+  document.getElementById('sbLangLbl').textContent = AR ? 'EN' : 'عربي';
+  document.getElementById('sbInstallLbl').textContent = t('تثبيت التطبيق');
+  document.getElementById('sbLogoutLbl').textContent = t('خروج');
+  document.getElementById('refreshLbl').textContent = t('تحديث');
+  document.getElementById('archivedLbl').textContent = t('عرض المؤرشفة');
+  document.getElementById('searchBox').placeholder = t('بحث برقم التذكرة، الموضوع، أو اسم المعلم...');
+  document.getElementById('thSerial').textContent = t('الرقم');
+  document.getElementById('thTeacher').textContent = t('المعلم');
+  document.getElementById('thCategory').textContent = t('التصنيف');
+  document.getElementById('thSubject').textContent = t('الموضوع');
+  document.getElementById('thPriority').textContent = t('الأولوية');
+  document.getElementById('thAssignee').textContent = t('الموظف المسؤول');
+  document.getElementById('thStatus').textContent = t('الحالة');
+  document.getElementById('thDate').textContent = t('التاريخ');
+  document.getElementById('thTime').textContent = t('الوقت');
+  document.getElementById('thActions').textContent = t('إجراءات');
+  document.getElementById('addCatTitle').textContent = t('إضافة تصنيف جديد');
+  document.getElementById('lblCatAr').textContent = t('الاسم بالعربي');
+  document.getElementById('lblCatEn').textContent = t('الاسم بالإنجليزي');
+  document.getElementById('addCatBtn').textContent = t('إضافة');
+  document.getElementById('catUploadTitle').textContent = t('رفع قائمة (CSV/TXT)');
+  document.getElementById('catUploadHint').textContent = t('ملف CSV أو TXT — كل سطر: nameAr,nameEn');
+  document.getElementById('addTeacherTitle').textContent = t('إضافة معلم/ة جديد');
+  document.getElementById('lblTName').textContent = t('الاسم');
+  document.getElementById('lblTEmail').textContent = t('البريد الإلكتروني');
+  document.getElementById('lblTPhone').textContent = t('الجوال');
+  document.getElementById('addTeacherBtn').textContent = t('إضافة');
+  document.getElementById('teachUploadTitle').textContent = t('رفع قائمة (CSV/TXT)');
+  document.getElementById('teachUploadHint').textContent = t('ملف CSV أو TXT — كل سطر: name,email,phone');
+  document.getElementById('teacherListTitle').textContent = t('قائمة المعلمين');
+  document.getElementById('teacherSearchBox').placeholder = t('بحث بالاسم أو البريد أو الجوال...');
+  document.getElementById('teacherBulkDeleteLbl').textContent = t('حذف المحدد');
+  document.getElementById('thTName').textContent = t('الاسم');
+  document.getElementById('thTEmail').textContent = t('البريد الإلكتروني');
+  document.getElementById('thTPhone').textContent = t('الجوال');
+  document.getElementById('thTActive').textContent = t('مفعّل');
+  document.getElementById('thTActions').textContent = t('إجراءات');
+  document.getElementById('addStaffTitle').textContent = t('إضافة موظف دعم جديد');
+  document.getElementById('newStaffUsername').placeholder = t('اسم المستخدم');
+  document.getElementById('newStaffFullName').placeholder = t('الاسم الكامل');
+  document.getElementById('newStaffEmail').placeholder = t('البريد الإلكتروني');
+  document.getElementById('newStaffPassword').placeholder = t('كلمة المرور');
+  document.getElementById('addStaffBtn').textContent = t('إضافة');
+  document.getElementById('newStaffRole').innerHTML =
+    `<option value="technical_support">${t('دعم فني')}</option><option value="system_admin">${t('مسؤول نظام')}</option><option value="administrator">${t('مدير عام')}</option>`;
+  document.getElementById('thSName').textContent = t('الاسم الكامل');
+  document.getElementById('thSUser').textContent = t('اسم المستخدم');
+  document.getElementById('thSRole').textContent = t('الدور');
+  document.getElementById('thSActive').textContent = t('مفعّل');
+  document.getElementById('thSActions').textContent = t('إجراءات');
+  document.getElementById('navSettingsLbl').textContent = t('الإعدادات');
+  document.getElementById('extSubTitle').textContent = t('قبول التذاكر من خارج قائمة المعلمين');
+  document.getElementById('extSubHint').textContent = t('عند التفعيل، يمكن لأي شخص خارج قائمة المعلمين تقديم تذكرة بإدخال اسمه وبريده الإلكتروني.');
+  document.getElementById('extSubToggleLbl').textContent = t('قبول تذاكر من خارج نطاق المعلمين (On/Off)');
+  document.getElementById('navTickerLbl').textContent = t('الشريط الإعلاني');
+  document.getElementById('tickerCardTitle').textContent = t('الشريط الإعلاني المتحرك');
+  document.getElementById('tickerEnabledLbl').textContent = t('تفعيل الشريط على كل الصفحات');
+  document.getElementById('tickerContentLbl').textContent = t('محتوى الشريط (عربي)');
+  document.getElementById('tickerContentHint').textContent = t('يمكنك تلوين النص، تنسيق الخط، وإضافة روابط — لكل الفقرة أو لجزء محدد منها.');
+  document.getElementById('tickerContentEnLbl').textContent = t('محتوى الشريط (إنجليزي)');
+  document.getElementById('tickerContentEnHint').textContent = t('يظهر هذا المحتوى فقط عند تصفح الموقع بالإنجليزية — إن تُرك فارغاً يُستخدم المحتوى العربي بدلاً منه.');
+  document.getElementById('tickerSpeedLbl').textContent = t('سرعة الشريط (ثواني لكل دورة)');
+  document.getElementById('tickerSpeedHint').textContent = t('رقم أصغر = حركة أسرع');
+  document.getElementById('tickerRssLbl').textContent = t('رابط RSS (اختياري)');
+  document.getElementById('tickerRssColorLbl').textContent = t('لون نص أخبار RSS');
+  document.getElementById('tickerRssSizeLbl').textContent = t('حجم خط أخبار RSS');
+  document.getElementById('tickerRssBoldLbl').textContent = t('خط عريض لأخبار RSS');
+  document.getElementById('tickerLogoLbl').textContent = t('إظهار الشعار بين فقرات الشريط');
+  document.getElementById('tickerPulseLbl').textContent = t('تأثير النبض (وميض)');
+  document.getElementById('tickerPulseSpeedLbl').textContent = t('سرعة النبض (ثواني لكل ومضة)');
+  document.getElementById('tickerShadowLbl').textContent = t('ظل النص (لوضوح أفضل)');
+  document.getElementById('tickerShadowNone').textContent = t('بدون ظل');
+  document.getElementById('tickerShadowLight').textContent = t('ظل خفيف');
+  document.getElementById('tickerShadowStrong').textContent = t('ظل قوي');
+  document.getElementById('tickerSaveLbl').textContent = t('حفظ');
+  document.getElementById('tickerPreviewLbl').textContent = t('معاينة على الموقع');
+
+  document.getElementById('navCatBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
+  document.getElementById('navTeachBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
+  document.getElementById('navStaffBtn').style.display = ME.role === 'administrator' ? '' : 'none';
+  document.getElementById('navSettingsBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
+  document.getElementById('navTickerBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
+  document.getElementById('addTeacherCard').style.display = ME.role === 'technical_support' ? 'none' : '';
+  document.getElementById('teacherUploadCard').style.display = ME.role === 'technical_support' ? 'none' : '';
+
+  const titles = { tickets: t('التذاكر'), categories: t('التصنيفات'), teachers: t('المعلمون'), staff: t('الموظفون'), settings: t('الإعدادات'), ticker: t('الشريط الإعلاني') };
+  document.getElementById('pageTitle').textContent = titles[window.currentTab || 'tickets'];
+}
+
+// ── Tab navigation (with URL-hash anchors, so refresh/shared links keep the tab) ──
+function showTab(name) {
+  closeSidebar();
+  window.currentTab = name;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name)?.classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${name}"]`)?.classList.add('active');
+  history.replaceState(null, '', '#' + name);
+  const titles = { tickets: t('التذاكر'), categories: t('التصنيفات'), teachers: t('المعلمون'), staff: t('الموظفون'), settings: t('الإعدادات'), ticker: t('الشريط الإعلاني') };
+  document.getElementById('pageTitle').textContent = titles[name] || name;
+  if (name === 'categories') loadCategories();
+  if (name === 'teachers') loadTeachers();
+  if (name === 'staff') loadStaff();
+  if (name === 'settings') loadSettings();
+  if (name === 'ticker') loadTickerSettings();
+}
+
+async function loadSettings() {
+  const s = await api('/admin/api/settings');
+  document.getElementById('allowExternalToggle').checked = !!s.allowExternalSubmitters;
+}
+
+async function onToggleExternal(el) {
+  await api('/admin/api/settings', 'POST', { allowExternalSubmitters: el.checked });
+  showToast(t('تم التحديث'));
+}
+
+// ── Ticker (scrolling marquee) ────────────────────────────────────────────
+let tickerQuillInstance = null;
+let tickerQuillEnInstance = null;
+
+function makeTickerQuill(selector) {
+  const SizeStyle = Quill.import('attributors/style/size');
+  SizeStyle.whitelist = ['12px', '16px', '22px', '32px'];
+  Quill.register(SizeStyle, true);
+  return new Quill(selector, {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline'],
+        [{ color: [] }, { background: [] }],
+        [{ size: ['12px', '16px', '22px', '32px'] }],
+        ['link'],
+        ['clean'],
+      ],
+    },
+  });
+}
+
+function getTickerQuill() {
+  if (!tickerQuillInstance) tickerQuillInstance = makeTickerQuill('#tickerQuill');
+  return tickerQuillInstance;
+}
+function getTickerQuillEn() {
+  if (!tickerQuillEnInstance) tickerQuillEnInstance = makeTickerQuill('#tickerQuillEn');
+  return tickerQuillEnInstance;
+}
+
+async function loadTickerSettings() {
+  const cfg = await api('/admin/api/ticker-settings');
+  getTickerQuill().root.innerHTML = cfg.html || '';
+  getTickerQuillEn().root.innerHTML = cfg.htmlEn || '';
+  document.getElementById('tickerEnabled').checked = !!cfg.enabled;
+  document.getElementById('tickerSpeed').value = cfg.speedSeconds || 25;
+  document.getElementById('tickerRssUrl').value = cfg.rssUrl || '';
+  document.getElementById('tickerRssColor').value = cfg.rssColor || '#ffffff';
+  document.getElementById('tickerRssFontSize').value = cfg.rssFontSize || 16;
+  document.getElementById('tickerRssBold').checked = cfg.rssBold !== false;
+  document.getElementById('tickerLogoBetween').checked = !!cfg.logoBetween;
+  document.getElementById('tickerPulse').checked = !!cfg.pulse;
+  document.getElementById('tickerPulseSpeed').value = cfg.pulseSeconds || 1.6;
+  document.getElementById('tickerPulseSpeedRow').style.display = cfg.pulse ? '' : 'none';
+  document.getElementById('tickerShadow').value = cfg.textShadow || 'light';
+}
+
+async function saveTickerSettings() {
+  await api('/admin/api/ticker-settings', 'POST', {
+    enabled: document.getElementById('tickerEnabled').checked,
+    html: getTickerQuill().root.innerHTML,
+    htmlEn: getTickerQuillEn().root.innerHTML,
+    speedSeconds: parseInt(document.getElementById('tickerSpeed').value, 10) || 25,
+    rssUrl: document.getElementById('tickerRssUrl').value.trim(),
+    rssColor: document.getElementById('tickerRssColor').value,
+    rssFontSize: parseInt(document.getElementById('tickerRssFontSize').value, 10) || 16,
+    rssBold: document.getElementById('tickerRssBold').checked,
+    logoBetween: document.getElementById('tickerLogoBetween').checked,
+    pulse: document.getElementById('tickerPulse').checked,
+    pulseSeconds: parseFloat(document.getElementById('tickerPulseSpeed').value) || 1.6,
+    textShadow: document.getElementById('tickerShadow').value,
+  });
+  showToast(t('تم التحديث'));
+  // Refresh the live ticker on this page right away — speed/pulse/color
+  // changes shouldn't need a full reload to see.
+  if (window.reloadTicker) window.reloadTicker();
+}
+
+function refreshAll() { loadTickets(); showToast(t('تم التحديث')); }
+
+// ── TICKETS ──────────────────────────────────────────────────────────────
+let TICKETS = [], CATEGORIES = [], STAFF_LIST = [];
+let ticketSort = { key: 'createdAt', dir: 'desc' };
+
+function statusLabel(s) { return AR ? ({open:'مفتوحة',in_progress:'قيد المعالجة',waiting:'بانتظار الرد',closed:'مغلقة'}[s]) : ({open:'Open',in_progress:'In Progress',waiting:'Waiting',closed:'Closed'}[s]); }
+function priorityLabel(p) { return AR ? ({low:'منخفضة',medium:'متوسطة',high:'عالية'}[p]) : ({low:'Low',medium:'Medium',high:'High'}[p]); }
+
+async function loadTickets() {
+  const params = new URLSearchParams();
+  const statCat = document.getElementById('filterCategory').value;
+  const assignee = document.getElementById('filterAssignee').value;
+  const priority = document.getElementById('filterPriority').value;
+  if (statCat) params.set('category_id', statCat);
+  if (assignee) params.set('assignee_id', assignee);
+  if (priority) params.set('priority', priority);
+  if (document.getElementById('filterArchived').checked) params.set('archived', '1');
+  // Status is deliberately NOT sent to the server: the stat cards should
+  // reflect the full distribution for the current scope, then status is
+  // filtered client-side in renderTickets().
+  TICKETS = await api('/admin/api/tickets?' + params.toString());
+  document.getElementById('nbOpen').textContent = TICKETS.filter(t => t.status !== 'closed').length;
+  renderStatCards();
+  renderTickets();
+}
+
+function renderStatCards() {
+  const all = TICKETS;
+  const counts = {
+    total: all.length, open: all.filter(x => x.status === 'open').length,
+    in_progress: all.filter(x => x.status === 'in_progress').length,
+    waiting: all.filter(x => x.status === 'waiting').length,
+    closed: all.filter(x => x.status === 'closed').length,
+    high: all.filter(x => x.priority === 'high').length,
+    unassigned: all.filter(x => !x.assigneeId).length,
+  };
+  const defs = [
+    ['total', 'الإجمالي', 'clear', ''], ['open', 'مفتوحة', 'open', 'accent'],
+    ['in_progress', 'قيد المعالجة', 'in_progress', ''], ['waiting', 'بانتظار الرد', 'waiting', 'orange'],
+    ['closed', 'مغلقة', 'closed', 'green'],
+    ['high', 'أولوية عالية', 'high_priority', 'red'], ['unassigned', 'غير معينة', 'unassigned', 'orange'],
+  ];
+  const isOn = (key) => {
+    if (key === 'high') return document.getElementById('filterPriority').value === 'high';
+    if (key === 'unassigned') return document.getElementById('filterAssignee').value === 'unassigned';
+    return window.currentStatFilter === key;
+  };
+  document.getElementById('statCards').innerHTML = defs.map(([key, label, action, cls]) => `
+    <div class="stat-card ${cls} ${isOn(key) ? 'active' : ''}" onclick="filterByStat('${action}')" title="${t(label)}" style="${isOn(key) ? 'outline:2px solid var(--primary)' : ''}">
+      <div class="stat-val">${counts[key]}</div><div class="stat-label">${t(label)}</div>
+    </div>`).join('');
+}
+
+function filterByStat(action) {
+  if (action === 'high_priority') {
+    const el = document.getElementById('filterPriority');
+    el.value = el.value === 'high' ? '' : 'high';
+    loadTickets();
+    return;
+  }
+  if (action === 'unassigned') {
+    const el = document.getElementById('filterAssignee');
+    el.value = el.value === 'unassigned' ? '' : 'unassigned';
+    loadTickets();
+    return;
+  }
+  window.currentStatFilter = (action === 'clear' || action === window.currentStatFilter) ? null : action;
+  renderStatCards(); renderTickets();
+}
+
+function sortBy(key) {
+  if (ticketSort.key === key) ticketSort.dir = ticketSort.dir === 'asc' ? 'desc' : 'asc';
+  else { ticketSort.key = key; ticketSort.dir = 'asc'; }
+  renderTickets();
+}
+
+function renderTickets() {
+  let rows = TICKETS.slice();
+  if (window.currentStatFilter) rows = rows.filter(r => r.status === window.currentStatFilter);
+  const q = (document.getElementById('searchBox').value || '').toLowerCase();
+  if (q) rows = rows.filter(r => (String(r.serial) + r.subject + r.teacherName + r.trackingCode).toLowerCase().includes(q));
+  rows.sort((a, b) => {
+    let av = a[ticketSort.key], bv = b[ticketSort.key];
+    if (av == null) av = ''; if (bv == null) bv = '';
+    if (av < bv) return ticketSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return ticketSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  document.getElementById('ticketsBody').innerHTML = rows.map(tk => {
+    const hoverTitle = `${AR ? 'التذكرة' : 'Ticket'} #${tk.serial} — ${esc(tk.subject)} — ${esc(tk.teacherName)} — ${esc(tk.category)}`;
+    const canManage = ME.role !== 'technical_support' || tk.assigneeId === ME.id;
+    const canAssign = ME.role !== 'technical_support';
+    const createdParts = (tk.createdAt || '').split('T');
+    const dateStr = createdParts[0] || '';
+    const timeStr = (createdParts[1] || '').slice(0, 5);
+
+    let actions = `<button class="btn btn-blue btn-sm" onclick="openDetail(${tk.id})" title="${t('عرض')}"><i class="fas fa-eye"></i></button>`;
+    if (canAssign) actions += `<button class="btn btn-outline btn-sm" onclick="openDetail(${tk.id},'assign')" title="${t('تعيين')}"><i class="fas fa-user-tag"></i></button>`;
+    if (canManage && (tk.status === 'open' || tk.status === 'in_progress')) {
+      actions += `<button class="btn btn-outline btn-sm" onclick="doWait(${tk.id})" title="${t('بانتظار الرد')}"><i class="fas fa-hourglass-half"></i></button>`;
+    }
+    if (canManage && tk.status === 'waiting') {
+      actions += `<button class="btn btn-blue btn-sm" onclick="doResume(${tk.id})" title="${t('استئناف')}"><i class="fas fa-play"></i></button>`;
+    }
+    if (tk.status !== 'closed' && canManage) actions += `<button class="btn btn-green btn-sm" onclick="openDetail(${tk.id},'close')" title="${t('إغلاق')}"><i class="fas fa-check"></i></button>`;
+    if (tk.status === 'closed' && canManage && !tk.mergedIntoId) {
+      actions += `<button class="btn btn-orange btn-sm" onclick="doReopen(${tk.id})" title="${t('إعادة فتح')}"><i class="fas fa-undo"></i></button>`;
+      if (!tk.archived) actions += `<button class="btn btn-outline btn-sm" onclick="doArchive(${tk.id})" title="${t('أرشفة')}"><i class="fas fa-box-archive"></i></button>`;
+    }
+    actions += `<a class="btn btn-outline btn-sm" href="/admin/ticket/${tk.id}/print" target="_blank" title="${t('طباعة')}"><i class="fas fa-print"></i></a>`;
+    if (canManage && tk.status !== 'closed') actions += `<button class="btn btn-outline btn-sm" onclick="promptMerge(${tk.id})" title="${t('دمج')}"><i class="fas fa-code-merge"></i></button>`;
+
+    return `<tr title="${hoverTitle}">
+      <td data-label="${t('الرقم')}"><strong style="color:var(--primary)">#${tk.serial}</strong>${tk.mergedIntoId ? ` <span class="badge" style="background:#eee;color:#888">${t('مدمجة')}</span>` : ''}</td>
+      <td data-label="${t('المعلم')}">${esc(tk.teacherName)}</td>
+      <td data-label="${t('التصنيف')}">${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
+      <td data-label="${t('الموضوع')}" title="${esc(tk.subject)}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tk.subject)}</td>
+      <td data-label="${t('الأولوية')}"><span class="priority-${tk.priority}"><span class="priority-dot"></span>${priorityLabel(tk.priority)}</span></td>
+      <td data-label="${t('الموظف المسؤول')}">${esc(tk.assigneeName || (AR ? 'غير معيّن' : 'Unassigned'))}</td>
+      <td data-label="${t('الحالة')}"><span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span></td>
+      <td data-label="${t('التاريخ')}">${dateStr}</td>
+      <td data-label="${t('الوقت')}">${timeStr}</td>
+      <td data-label="${t('إجراءات')}">${actions}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">${t('لا توجد نتائج')}</td></tr>`;
+}
+
+async function loadFilterOptions() {
+  CATEGORIES = await api('/admin/api/categories');
+  document.getElementById('filterCategory').innerHTML =
+    `<option value="">${t('كل التصنيفات')}</option>` + CATEGORIES.map(c => `<option value="${c.id}">${AR ? c.nameAr : c.nameEn}</option>`).join('');
+  document.getElementById('filterPriority').innerHTML =
+    `<option value="">${t('كل الأولويات')}</option><option value="low">${t('منخفضة')}</option><option value="medium">${t('متوسطة')}</option><option value="high">${t('عالية')}</option>`;
+  if (ME.role !== 'technical_support') {
+    STAFF_LIST = await api('/admin/api/staff');
+    document.getElementById('filterAssignee').style.display = '';
+    document.getElementById('filterAssignee').innerHTML =
+      `<option value="">${t('كل الموظفين')}</option><option value="unassigned">${t('غير معينة (فلتر)')}</option>` +
+      STAFF_LIST.map(s => `<option value="${s.id}">${esc(s.fullName)}</option>`).join('');
+  }
+}
+
+// ── Ticket detail modal ("Open Ticket") ──────────────────────────────────
+async function openDetail(id, focus) {
+  const tk = await api('/admin/api/tickets/' + id);
+  const canManage = ME.role !== 'technical_support' || tk.assigneeId === ME.id;
+  const canAssign = ME.role !== 'technical_support';
+
+  const commentsHtml = tk.comments.filter(c => c.authorRole !== 'system').map(c => `
+    <div class="comment ${c.internal ? 'internal' : ''}">
+      <div class="meta">${c.authorRole === 'staff' ? esc(c.authorName || t('الدعم الفني')) : esc(tk.teacherName)}${c.internal ? ' · ' + t('ملاحظة داخلية (لا تظهر لمقدم الطلب)') : ''} — ${(c.createdAt||'').slice(0,16).replace('T',' ')}</div>
+      <div class="body">${esc(c.body)}</div>
+    </div>`).join('') || `<p style="color:var(--muted);font-size:.82rem">${t('لا توجد تعليقات بعد')}</p>`;
+
+  const assigneeOptions = STAFF_LIST.length ? STAFF_LIST : await api('/admin/api/staff').then(s => (STAFF_LIST = s));
+
+  document.getElementById('detailModalBody').innerHTML = `
+    <div class="modal-title">
+      <span>#${tk.serial} — ${esc(tk.subject)}</span>
+      <button class="modal-close" onclick="closeDetail()" title="${t('إغلاق النافذة')}"><i class="fas fa-times"></i></button>
+    </div>
+    <span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span>
+    ${tk.mergedIntoSerial ? `<span style="font-size:.8rem;color:var(--muted)"> — ${t('تم دمج هذه التذكرة مع #')}${tk.mergedIntoSerial}</span>` : ''}
+    <div class="detail-grid">
+      <div><div class="k">${t('مقدّم الطلب')}</div>${esc(tk.teacherName)}</div>
+      <div><div class="k">${t('البريد')}</div>${esc(tk.teacherEmail || '—')}</div>
+      <div><div class="k">${t('الهاتف')}</div>${esc(tk.teacherPhone || '—')}</div>
+      <div><div class="k">${t('التصنيف')}</div>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</div>
+      <div><div class="k">${t('الموقع')}</div>${esc(tk.location || '—')}</div>
+      <div><div class="k">${t('الأولوية')}</div>${canManage ? `
+        <select id="prioritySelect" style="padding:4px 8px;font-size:.82rem;width:auto;display:inline-block">
+          <option value="low" ${tk.priority==='low'?'selected':''}>${t('منخفضة')}</option>
+          <option value="medium" ${tk.priority==='medium'?'selected':''}>${t('متوسطة')}</option>
+          <option value="high" ${tk.priority==='high'?'selected':''}>${t('عالية')}</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="doSetPriority(${tk.id})">${t('حفظ')}</button>
+      ` : `<span class="priority-${tk.priority}"><span class="priority-dot"></span>${priorityLabel(tk.priority)}</span>`}</div>
+    </div>
+    ${tk.description ? `<div style="margin:8px 0"><div class="k" style="color:var(--muted);font-size:.72rem;font-weight:700">${t('الوصف')}</div><div style="white-space:pre-wrap;font-size:.85rem">${esc(tk.description)}</div></div>` : ''}
+    ${tk.attachments.length ? `<div style="margin-bottom:10px">${tk.attachments.map((a,i)=>`<a href="${a}" target="_blank" class="btn btn-outline btn-sm" title="${t('المرفقات')}">${i+1} <i class="fas fa-paperclip"></i></a>`).join('')}</div>` : ''}
+
+    ${canAssign ? `
+    <div style="background:#fdf2ee;border-radius:8px;padding:10px;margin:10px 0">
+      <label style="margin-top:0">${t('تعيين إلى')}</label>
+      <div style="display:flex;gap:6px">
+        <select id="assigneeSelect" style="flex:1">
+          <option value="">${t('-- بلا تعيين --')}</option>
+          ${assigneeOptions.map(s => `<option value="${s.id}" ${tk.assigneeId===s.id?'selected':''}>${esc(s.fullName)} (${AR?s.roleLabelAr:s.roleLabelEn})</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="doAssign(${tk.id})">${t('حفظ التعيين')}</button>
+      </div>
+    </div>` : ''}
+
+    <div class="card-title" style="margin-top:14px;font-size:.9rem">${t('سجل المتابعة')}</div>
+    <div>${commentsHtml}</div>
+
+    ${canManage ? `
+    <div style="margin-top:10px">
+      <label>${t('إضافة تعليق')}</label>
+      <textarea id="newCommentBody"></textarea>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600">
+        <input type="checkbox" id="newCommentInternal"> ${t('ملاحظة داخلية (لا تظهر لمقدم الطلب)')}
+      </label>
+      <button class="btn btn-primary" style="margin-top:8px" onclick="doComment(${tk.id})"><i class="fas fa-paper-plane"></i> ${t('إرسال')}</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      ${(tk.status === 'open' || tk.status === 'in_progress') ? `<button class="btn btn-outline" onclick="doWait(${tk.id});closeDetail()"><i class="fas fa-hourglass-half"></i> ${t('بانتظار الرد')}</button>` : ''}
+      ${tk.status === 'waiting' ? `<button class="btn btn-blue" onclick="doResume(${tk.id});closeDetail()"><i class="fas fa-play"></i> ${t('استئناف')}</button>` : ''}
+      ${tk.status !== 'closed' ? `<button class="btn btn-green" onclick="promptClose(${tk.id})"><i class="fas fa-check"></i> ${t('إغلاق')}</button>` : ''}
+      ${tk.status === 'closed' && !tk.mergedIntoId ? `<button class="btn btn-orange" onclick="doReopen(${tk.id});closeDetail()"><i class="fas fa-undo"></i> ${t('إعادة فتح')}</button>` : ''}
+      ${tk.status === 'closed' && !tk.archived ? `<button class="btn btn-outline" onclick="doArchive(${tk.id});closeDetail()"><i class="fas fa-box-archive"></i> ${t('أرشفة')}</button>` : ''}
+      ${tk.status !== 'closed' ? `<button class="btn btn-outline" onclick="promptMerge(${tk.id})"><i class="fas fa-code-merge"></i> ${t('دمج')}</button>` : ''}
+      <a class="btn btn-outline" href="/admin/ticket/${tk.id}/print" target="_blank"><i class="fas fa-print"></i> ${t('طباعة')}</a>
+    </div>` : `<div style="margin-top:10px"><a class="btn btn-outline" href="/admin/ticket/${tk.id}/print" target="_blank"><i class="fas fa-print"></i> ${t('طباعة')}</a></div>`}
+  `;
+  document.getElementById('detailModal').classList.add('open');
+  if (focus === 'assign') document.getElementById('assigneeSelect')?.focus();
+  if (focus === 'close') promptClose(tk.id);
+}
+
+function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
+
+async function doAssign(id) {
+  const val = document.getElementById('assigneeSelect').value;
+  await api(`/admin/api/tickets/${id}/assign`, 'POST', { assigneeId: val ? parseInt(val, 10) : null });
+  showToast(t('تم التحديث'));
+  await loadTickets();
+  openDetail(id);
+}
+
+async function doComment(id) {
+  const body = document.getElementById('newCommentBody').value.trim();
+  if (!body) { showToast(t('يرجى كتابة تعليق'), '#c0392b'); return; }
+  const internal = document.getElementById('newCommentInternal').checked;
+  await api(`/admin/api/tickets/${id}/comment`, 'POST', { body, internal });
+  await loadTickets();
+  openDetail(id);
+}
+
+function promptClose(id) {
+  const note = prompt(t('تعليق الإغلاق (اختياري)') + ':') || '';
+  if (note === null) return;
+  api(`/admin/api/tickets/${id}/close`, 'POST', { comment: note }).then(() => { showToast(t('تم التحديث')); loadTickets(); closeDetail(); });
+}
+
+async function doReopen(id) { await api(`/admin/api/tickets/${id}/reopen`, 'POST'); showToast(t('تم التحديث')); loadTickets(); }
+async function doArchive(id) { await api(`/admin/api/tickets/${id}/archive`, 'POST'); showToast(t('تم التحديث')); loadTickets(); }
+async function doWait(id) { await api(`/admin/api/tickets/${id}/wait`, 'POST'); showToast(t('تم التحديث')); loadTickets(); }
+async function doResume(id) { await api(`/admin/api/tickets/${id}/resume`, 'POST'); showToast(t('تم التحديث')); loadTickets(); }
+async function doSetPriority(id) {
+  const priority = document.getElementById('prioritySelect').value;
+  await api(`/admin/api/tickets/${id}/priority`, 'POST', { priority });
+  showToast(t('تم التحديث'));
+  await loadTickets();
+  openDetail(id);
+}
+
+function promptMerge(id) {
+  const other = prompt(t('أدخل الرقم التسلسلي للتذكرة الأخرى للدمج معها:'));
+  if (!other) return;
+  const otherTicket = TICKETS.find(x => String(x.serial) === String(other).trim());
+  if (!otherTicket) { showToast(t('حدث خطأ'), '#c0392b'); return; }
+  api('/admin/api/tickets/merge', 'POST', { ticketIdA: id, ticketIdB: otherTicket.id })
+    .then(() => { showToast(t('تم التحديث')); loadTickets(); closeDetail(); });
+}
+
+// ── CATEGORIES ────────────────────────────────────────────────────────────
+async function loadCategories() { CATEGORIES = await api('/admin/api/categories'); renderCategories(); }
+
+function renderCategories() {
+  const canManage = ME.role !== 'technical_support';
+  document.getElementById('categoriesList').innerHTML = CATEGORIES.map(c => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div><strong>${esc(AR ? c.nameAr : c.nameEn)}</strong> <span style="color:var(--muted);font-size:.8rem">(${esc(c.nameAr)} / ${esc(c.nameEn)})</span>
+          ${!c.active ? `<span class="badge" style="background:#eee;color:#888">${t('غير نشط')}</span>` : ''}
+        </div>
+        ${canManage ? `<div><button class="btn btn-outline btn-sm" onclick="toggleCategoryActive(${c.id}, ${!c.active})">${c.active ? t('غير نشط') : t('نشط')}</button>
+          <button class="btn btn-red btn-sm" onclick="deleteCategory(${c.id})" title="${t('حذف')}"><i class="fas fa-trash"></i></button></div>` : ''}
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:6px">${t('العناصر الفرعية')}</div>
+        ${(c.items || []).map(i => `
+          <span class="badge badge-role" style="margin:2px 4px 2px 0">${esc(AR ? i.nameAr : i.nameEn)}${(AR ? i.code : (i.codeEn || i.code)) ? ' ('+esc(AR ? i.code : (i.codeEn || i.code))+')' : ''}
+            ${canManage ? `<a href="#" onclick="deleteCategoryItem(${i.id});return false" title="${t('حذف')}" style="margin-inline-start:6px;color:#c0392b">✕</a>` : ''}
+          </span>`).join('')}
+        ${canManage ? `
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <input type="text" id="itemAr-${c.id}" placeholder="${t('الاسم بالعربي')}" style="flex:1;min-width:120px">
+          <input type="text" id="itemEn-${c.id}" placeholder="${t('الاسم بالإنجليزي')}" style="flex:1;min-width:120px">
+          <input type="text" id="itemCode-${c.id}" placeholder="${t('أدرج معرّفاً (اختياري)')}" style="width:130px">
+          <input type="text" id="itemCodeEn-${c.id}" placeholder="${t('المعرّف بالإنجليزي (اختياري)')}" dir="ltr" style="width:150px">
+          <button class="btn btn-outline btn-sm" onclick="addCategoryItem(${c.id})">${t('إضافة عنصر فرعي')}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span style="font-size:.78rem;color:var(--muted);white-space:nowrap">${t('رفع عناصر فرعية (CSV/TXT)')}:</span>
+          <input type="file" accept=".csv,.txt" onchange="uploadCategoryItems(${c.id}, this)" style="max-width:220px">
+        </div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function addCategory() {
+  const nameAr = document.getElementById('newCatAr').value.trim();
+  const nameEn = document.getElementById('newCatEn').value.trim();
+  if (!nameAr) return;
+  await api('/admin/api/categories', 'POST', { nameAr, nameEn });
+  document.getElementById('newCatAr').value = ''; document.getElementById('newCatEn').value = '';
+  showToast(t('تمت الإضافة'));
+  loadCategories();
+}
+async function toggleCategoryActive(id, active) { await api(`/admin/api/categories/${id}`, 'PUT', { active }); loadCategories(); }
+async function deleteCategory(id) { if (!confirm(t('هل أنت متأكد من حذف هذا التصنيف؟'))) return; await api(`/admin/api/categories/${id}`, 'DELETE'); loadCategories(); }
+async function addCategoryItem(catId) {
+  const nameAr = document.getElementById(`itemAr-${catId}`).value.trim();
+  const nameEn = document.getElementById(`itemEn-${catId}`).value.trim();
+  const code = document.getElementById(`itemCode-${catId}`).value.trim();
+  const codeEn = document.getElementById(`itemCodeEn-${catId}`).value.trim();
+  if (!nameAr) return;
+  await api(`/admin/api/categories/${catId}/items`, 'POST', { nameAr, nameEn, code, codeEn });
+  loadCategories();
+}
+async function deleteCategoryItem(id) { if (!confirm(t('هل أنت متأكد من حذف هذا العنصر؟'))) return; await api(`/admin/api/category-items/${id}`, 'DELETE'); loadCategories(); }
+
+function parseCsvLines(text, fields) {
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const parts = l.split(',').map(p => p.trim());
+    const obj = {};
+    fields.forEach((f, i) => obj[f] = parts[i] || '');
+    return obj;
+  });
+}
+
+async function uploadCategories(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const list = parseCsvLines(await file.text(), ['nameAr', 'nameEn']).filter(x => x.nameAr);
+  const data = await api('/admin/api/bulk-add-categories', 'POST', { list });
+  let msg = `${t('تمت الإضافة')}: ${data.count}`;
+  if (data.errors && data.errors.length) msg += ` — ${t('تعذّر')}: ${data.errors.length}`;
+  showToast(msg, data.errors && data.errors.length ? '#e67e22' : '#27ae60');
+  loadCategories();
+  input.value = '';
+}
+
+async function uploadCategoryItems(catId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const list = parseCsvLines(await file.text(), ['nameAr', 'nameEn', 'code', 'codeEn']).filter(x => x.nameAr);
+  const data = await api(`/admin/api/categories/${catId}/bulk-add-items`, 'POST', { list });
+  let msg = `${t('تمت الإضافة')}: ${data.count}`;
+  if (data.errors && data.errors.length) msg += ` — ${t('تعذّر')}: ${data.errors.length}`;
+  showToast(msg, data.errors && data.errors.length ? '#e67e22' : '#27ae60');
+  loadCategories();
+  input.value = '';
+}
+
+// ── TEACHERS ──────────────────────────────────────────────────────────────
+let TEACHERS = [];
+let editingTeacherId = null;
+let selectedTeacherIds = new Set();
+
+async function loadTeachers() { TEACHERS = await api('/admin/api/teachers'); selectedTeacherIds.clear(); editingTeacherId = null; renderTeachers(); }
+
+function renderTeachers() {
+  const canManage = ME.role !== 'technical_support';
+  const q = (document.getElementById('teacherSearchBox').value || '').toLowerCase();
+  const rows = q
+    ? TEACHERS.filter(tc => (tc.name + ' ' + (tc.email||'') + ' ' + (tc.phone||'')).toLowerCase().includes(q))
+    : TEACHERS;
+
+  document.getElementById('teachersBody').innerHTML = rows.map(tc => {
+    if (editingTeacherId === tc.id) {
+      return `<tr>
+        <td></td>
+        <td data-label="${t('الاسم')}"><input type="text" id="editTName" value="${esc(tc.name)}" style="min-width:120px"></td>
+        <td data-label="${t('البريد الإلكتروني')}"><input type="email" id="editTEmail" dir="ltr" value="${esc(tc.email || '')}" style="min-width:140px"></td>
+        <td data-label="${t('الجوال')}"><input type="tel" id="editTPhone" dir="ltr" value="${esc(tc.phone || '')}" style="min-width:110px"></td>
+        <td data-label="${t('مفعّل')}">${tc.active ? '<i class="fas fa-check" style="color:#27ae60"></i>' : '<i class="fas fa-times" style="color:#c0392b"></i>'}</td>
+        <td data-label="${t('إجراءات')}">
+          <button class="btn btn-primary btn-sm" onclick="saveEditTeacher(${tc.id})" title="${t('حفظ')}"><i class="fas fa-check"></i></button>
+          <button class="btn btn-outline btn-sm" onclick="cancelEditTeacher()" title="${t('إلغاء')}"><i class="fas fa-times"></i></button>
+        </td>
+      </tr>`;
+    }
+    return `<tr>
+      <td><input type="checkbox" class="teacher-check" value="${tc.id}" ${selectedTeacherIds.has(tc.id) ? 'checked' : ''} onchange="onTeacherCheck(${tc.id}, this.checked)"></td>
+      <td data-label="${t('الاسم')}">${esc(tc.name)}</td>
+      <td data-label="${t('البريد الإلكتروني')}">${esc(tc.email || '—')}</td>
+      <td data-label="${t('الجوال')}">${esc(tc.phone || '—')}</td>
+      <td data-label="${t('مفعّل')}">${tc.active ? '<i class="fas fa-check" style="color:#27ae60"></i>' : '<i class="fas fa-times" style="color:#c0392b"></i>'}</td>
+      <td data-label="${t('إجراءات')}">${canManage ? `
+        <button class="btn btn-blue btn-sm" onclick="startEditTeacher(${tc.id})" title="${t('تعديل')}"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-outline btn-sm" onclick="toggleTeacherActive(${tc.id}, ${!tc.active})" title="${tc.active ? t('غير نشط') : t('نشط')}"><i class="fas fa-power-off"></i></button>
+        <button class="btn btn-red btn-sm" onclick="deleteTeacher(${tc.id})" title="${t('حذف')}"><i class="fas fa-trash"></i></button>` : ''}
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">${t('لا توجد نتائج')}</td></tr>`;
+
+  document.getElementById('teacherSelectAll').checked = rows.length > 0 && rows.every(tc => selectedTeacherIds.has(tc.id));
+  updateTeacherSelCount();
+}
+
+function onTeacherCheck(id, checked) {
+  if (checked) selectedTeacherIds.add(id); else selectedTeacherIds.delete(id);
+  updateTeacherSelCount();
+}
+
+function toggleAllTeachers(el) {
+  const q = (document.getElementById('teacherSearchBox').value || '').toLowerCase();
+  const rows = q
+    ? TEACHERS.filter(tc => (tc.name + ' ' + (tc.email||'') + ' ' + (tc.phone||'')).toLowerCase().includes(q))
+    : TEACHERS;
+  rows.forEach(tc => { if (el.checked) selectedTeacherIds.add(tc.id); else selectedTeacherIds.delete(tc.id); });
+  renderTeachers();
+}
+
+function updateTeacherSelCount() {
+  const n = selectedTeacherIds.size;
+  document.getElementById('teacherSelCount').textContent = n ? `${t('محدد')}: ${n}` : '';
+  document.getElementById('teacherBulkDeleteBtn').style.display = n ? '' : 'none';
+}
+
+async function bulkDeleteTeachers() {
+  const ids = [...selectedTeacherIds];
+  if (!ids.length) return;
+  if (!confirm(AR ? `هل أنت متأكد من حذف ${ids.length} معلم/ة؟` : `Delete ${ids.length} teacher(s)?`)) return;
+  for (const id of ids) {
+    try { await api(`/admin/api/teachers/${id}`, 'DELETE'); } catch (e) { /* keep going */ }
+  }
+  showToast(t('تم التحديث'));
+  loadTeachers();
+}
+
+function startEditTeacher(id) { editingTeacherId = id; renderTeachers(); }
+function cancelEditTeacher() { editingTeacherId = null; renderTeachers(); }
+async function saveEditTeacher(id) {
+  const name = document.getElementById('editTName').value.trim();
+  if (!name) return;
+  await api(`/admin/api/teachers/${id}`, 'PUT', {
+    name, email: document.getElementById('editTEmail').value.trim(),
+    phone: document.getElementById('editTPhone').value.trim(),
+  });
+  editingTeacherId = null;
+  showToast(t('تم التحديث'));
+  loadTeachers();
+}
+
+async function addTeacher() {
+  const name = document.getElementById('newTeacherName').value.trim();
+  if (!name) return;
+  await api('/admin/api/teachers', 'POST', {
+    name, email: document.getElementById('newTeacherEmail').value.trim(),
+    phone: document.getElementById('newTeacherPhone').value.trim(),
+  });
+  document.getElementById('newTeacherName').value = '';
+  document.getElementById('newTeacherEmail').value = '';
+  document.getElementById('newTeacherPhone').value = '';
+  showToast(t('تمت الإضافة'));
+  loadTeachers();
+}
+async function toggleTeacherActive(id, active) { await api(`/admin/api/teachers/${id}`, 'PUT', { active }); loadTeachers(); }
+async function deleteTeacher(id) { if (!confirm(t('هل أنت متأكد من حذف هذا المعلم؟'))) return; await api(`/admin/api/teachers/${id}`, 'DELETE'); loadTeachers(); }
+
+async function uploadTeachers(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const list = parseCsvLines(await file.text(), ['name', 'email', 'phone']).filter(x => x.name);
+  const data = await api('/admin/api/bulk-add-teachers', 'POST', { list });
+  let msg = `${t('تمت الإضافة')}: ${data.count}`;
+  if (data.errors && data.errors.length) msg += ` — ${t('تعذّر')}: ${data.errors.length}`;
+  showToast(msg, data.errors && data.errors.length ? '#e67e22' : '#27ae60');
+  loadTeachers();
+  input.value = '';
+}
+
+// ── STAFF ─────────────────────────────────────────────────────────────────
+async function loadStaff() { STAFF_LIST = await api('/admin/api/staff'); renderStaff(); }
+function renderStaff() {
+  if (ME.role !== 'administrator') return;
+  document.getElementById('staffBody').innerHTML = STAFF_LIST.map(s => `
+    <tr>
+      <td data-label="${t('الاسم الكامل')}">${esc(s.fullName)}</td>
+      <td data-label="${t('اسم المستخدم')}">${esc(s.username)}</td>
+      <td data-label="${t('الدور')}"><span class="badge badge-role">${esc(AR ? s.roleLabelAr : s.roleLabelEn)}</span></td>
+      <td data-label="${t('مفعّل')}">${s.active ? '<i class="fas fa-check" style="color:#27ae60"></i>' : '<i class="fas fa-times" style="color:#c0392b"></i>'}</td>
+      <td data-label="${t('إجراءات')}">
+        <button class="btn btn-outline btn-sm" onclick="toggleStaffActive(${s.id}, ${!s.active})" title="${s.active ? t('غير نشط') : t('نشط')}"><i class="fas fa-power-off"></i></button>
+        ${s.id !== ME.id ? `<button class="btn btn-red btn-sm" onclick="deleteStaff(${s.id})" title="${t('حذف')}"><i class="fas fa-trash"></i></button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+async function addStaff() {
+  const username = document.getElementById('newStaffUsername').value.trim();
+  const fullName = document.getElementById('newStaffFullName').value.trim();
+  const password = document.getElementById('newStaffPassword').value;
+  const email = document.getElementById('newStaffEmail').value.trim();
+  const role = document.getElementById('newStaffRole').value;
+  if (!username || !fullName || !password) return;
+  await api('/admin/api/staff', 'POST', { username, fullName, password, email, role });
+  ['newStaffUsername','newStaffFullName','newStaffEmail','newStaffPassword'].forEach(id => document.getElementById(id).value = '');
+  showToast(t('تمت الإضافة'));
+  loadStaff();
+}
+async function toggleStaffActive(id, active) { if (!active && !confirm(t('هل أنت متأكد من تعطيل هذا الحساب؟'))) return; await api(`/admin/api/staff/${id}`, 'PUT', { active }); loadStaff(); }
+async function deleteStaff(id) { if (!confirm(t('هل أنت متأكد من تعطيل هذا الحساب؟'))) return; await api(`/admin/api/staff/${id}`, 'DELETE'); loadStaff(); }
+
+// ── PWA install + service worker ─────────────────────────────────────────
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('installAppBtn');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+if (!isStandalone) {
+  if (isIOS) { installBtn.style.display = 'flex'; }
+  else window.addEventListener('beforeinstallprompt', e => { deferredInstallPrompt = e; installBtn.style.display = 'flex'; });
+}
+function handleInstallClick(e) {
+  e.preventDefault();
+  if (isIOS) { alert(AR ? 'لإضافة التطبيق للشاشة الرئيسية اضغط زر المشاركة ثم Add to Home Screen' : 'Tap Share, then "Add to Home Screen"'); return; }
+  if (deferredInstallPrompt) { deferredInstallPrompt.prompt(); deferredInstallPrompt.userChoice.finally(() => { deferredInstallPrompt = null; installBtn.style.display = 'none'; }); }
+}
+window.addEventListener('appinstalled', () => installBtn.style.display = 'none');
+
+// ── Web Push notifications (bell button) ─────────────────────────────────
+async function subscribeToPush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await api('/admin/api/vapid-public-key');
+    if (!key) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+    await api('/admin/api/push-subscribe', 'POST', sub.toJSON());
+    return true;
+  } catch (e) { console.error(e); return false; }
+}
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+async function requestNotifyPermission() {
+  if (!window.Notification) { showToast(t('المتصفح لا يدعم الإشعارات'), '#c0392b'); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    const btn = document.getElementById('notifyBellBtn');
+    if (perm === 'granted') {
+      const pushOk = await subscribeToPush();
+      showToast(pushOk ? t('تم تفعيل الإشعارات — ستصلك حتى لو أغلقت التطبيق ✓') : t('تم تفعيل الإشعارات بالتطبيق المفتوح ✓'), '#27ae60');
+      if (btn) btn.classList.add('active');
+    } else {
+      showToast(t('لم يتم منح إذن الإشعارات'), '#c0392b');
+    }
+  } catch (e) { console.error(e); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async function init() {
+  document.documentElement.lang = AR ? 'ar' : 'en';
+  document.documentElement.dir = AR ? 'rtl' : 'ltr';
+  paintStaticLabels();
+  updateClock();
+  await loadFilterOptions();
+  await loadTickets();
+
+  const validTabs = ['tickets', 'categories', 'teachers', 'staff', 'settings', 'ticker'];
+  const initialTab = location.hash.replace('#', '');
+  if (validTabs.includes(initialTab)) showTab(initialTab);
+
+  if (window.Notification && Notification.permission === 'granted') {
+    document.getElementById('notifyBellBtn')?.classList.add('active');
+  }
+  setInterval(loadTickets, 60000);
+})();
+</script>
+</body>
+</html>
