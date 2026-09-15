@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ 'نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests System' }}{% endblock %}</title>
+
+  <!-- PWA: Add to Home Screen (Android + iOS + Desktop) -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#1B3358">
+  <link rel="icon" href="/static/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="{{ 'الدعم الفني' if lang == 'ar' else 'IT Support' }}">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #FF5733;
+      --primary-dark: #C43D1F;
+      --primary-light: #FF8563;
+      --secondary: #2E4E7A;
+      --secondary-dark: #1B3358;
+      --secondary-light: #5A7CA8;
+      --accent: {{ config.ACCENT_COLOR }};
+      --bg: #eef3f5;
+      --white: #fff;
+      --text: #1e2a2b;
+      --muted: #6b7c7e;
+      --border: #cfe0e3;
+      --radius: 14px;
+      --shadow: 0 4px 20px rgba(255,87,51,.12);
+      --shadow-sm: 0 2px 8px rgba(255,87,51,.08);
+      --green: #27ae60; --red: #c0392b; --orange: #e67e22;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; height: 100%; }
+    body {
+      font-family: {% if lang == 'ar' %}'Tajawal'{% else %}'Inter'{% endif %}, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100%;
+      overflow: hidden; /* nothing scrolls at body level — .container is its own pane, see below */
+    }
+    a { color: inherit; text-decoration: none; }
+
+    #siteHeaderFixed {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+    }
+    /* The ticker is fixed by default (for pages that include it standalone),
+       but here it's nested inside the header wrapper above, which already
+       handles the fixing — so it just needs to behave like a normal block
+       so it stacks directly above the topbar within that one fixed unit. */
+    #siteHeaderFixed #globalTicker { position: static; z-index: auto; }
+
+    .topbar {
+      background: linear-gradient(135deg, var(--secondary-dark) 0%, var(--secondary) 50%, var(--secondary-light) 100%);
+      color: #fff;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 3px 16px rgba(0,0,0,.25);
+      min-height: 64px;
+      z-index: 100;
+      flex-wrap: wrap;
+    }
+    .topbar-logo-chip {
+      background: #fff; border-radius: 10px; padding: 6px 12px;
+      display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); flex-shrink: 0;
+    }
+    .topbar img { height: 56px; display: block; }
+    .topbar-titles { flex: 1; min-width: 140px; }
+    .topbar-titles span { font-weight: 800; font-size: 1.2rem; }
+    .topbar-clock { display: block; margin-top: 3px; font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.78); }
+    .topbar-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 10px 0; }
+    .topbar-nav a {
+      display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+      border-radius: 10px; font-size: .85rem; font-weight: 600;
+      background: rgba(255,255,255,.08); transition: .15s;
+    }
+    .topbar-nav a:hover, .topbar-nav a.active { background: rgba(255,255,255,.22); }
+
+    .container {
+      position: fixed; top: 64px; left: 0; right: 0; bottom: 0; overflow-y: auto;
+      max-width: 720px; margin: 0 auto; padding: 24px 16px 60px;
+    }
+    .card {
+      background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 26px; margin-bottom: 18px; border: 1px solid var(--border);
+    }
+    h1.page-title { font-size: 1.35rem; color: var(--primary-dark); margin-bottom: 4px; }
+    .page-sub { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
+
+    label { display: block; font-weight: 700; font-size: .85rem; margin: 14px 0 6px; color: var(--text); }
+    input[type=text], input[type=email], input[type=tel], input[type=search],
+    select, textarea {
+      width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px;
+      font-family: inherit; font-size: .92rem; background: #fbfdfd; color: var(--text);
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    textarea { min-height: 110px; resize: vertical; }
+    .hint { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+    .field-error { color: var(--red); font-size: .8rem; margin-top: 4px; font-weight: 600; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    .checkbox-row input { width: auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+      padding: 12px 22px; border: none; border-radius: 10px; font-weight: 700;
+      font-size: .92rem; cursor: pointer; font-family: inherit; transition: .15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-block { width: 100%; margin-top: 18px; }
+    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+
+    .alert { padding: 14px 16px; border-radius: 10px; margin-bottom: 16px; font-size: .88rem; font-weight: 600; }
+    .alert-success { background: #eaf7ee; color: #1f7a44; border: 1px solid #cfead6; }
+    .alert-error { background: #fdf0f0; color: #c0392b; border: 1px solid #f6d3d1; }
+
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 700; }
+    .badge-open { background: #fef2e0; color: #b9770e; }
+    .badge-in_progress { background: #e3f0ff; color: #1a5fb4; }
+    .badge-waiting { background: #fdf1e3; color: #b9770e; }
+    .badge-closed { background: #eaf7ee; color: #1f7a44; }
+    .priority-low { color: #6b7c7e; }
+    .priority-medium { color: #1a5fb4; }
+    .priority-high { color: #c0392b; font-weight: 800; }
+
+    .ticket-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 16px 0; }
+    .ticket-meta .k { font-size: .78rem; color: var(--muted); font-weight: 700; }
+    .ticket-meta .v { font-size: .92rem; }
+    .tracking-chip {
+      display: inline-block; font-family: 'Inter', monospace; letter-spacing: 2px;
+      background: var(--primary); color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 800;
+    }
+    .comment { border-inline-start: 3px solid var(--primary); background: #f5fafa; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+    .comment.staff { border-inline-start-color: var(--secondary); background: #f2f5fa; }
+    .comment .meta { font-size: .74rem; color: var(--muted); margin-bottom: 4px; font-weight: 700; }
+    .comment .body { white-space: pre-wrap; font-size: .88rem; }
+    .teacher-suggestion:hover { background: #f5fafa; }
+
+    @media (max-width: 640px) {
+      .topbar { padding: 10px 12px; }
+      .topbar img { height: 44px; }
+      .topbar-titles span { font-size: 1rem; }
+      .topbar-clock { font-size: .72rem; }
+      .topbar-nav { width: 100%; }
+      .topbar-nav a { flex: 1; justify-content: center; padding: 8px 4px; font-size: .74rem; }
+      .container { padding: 14px 10px 50px; }
+      .card { padding: 18px; }
+      .ticket-meta { grid-template-columns: 1fr; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div id="siteHeaderFixed">
+    {% include "_ticker.html" %}
+    <div class="topbar">
+      {% if config.LOGO_URL %}
+      <div class="topbar-logo-chip"><img src="{{ config.LOGO_URL }}" alt="{{ 'شعار المؤسسة' if lang == 'ar' else 'Organization logo' }}"></div>
+      {% endif %}
+      <div class="topbar-titles">
+        <span>{{ 'نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests System' }}</span>
+        <span class="topbar-clock" id="topbarClock"></span>
+      </div>
+      <nav class="topbar-nav">
+        <a href="/ticket?lang={{ lang }}" class="{% if request.endpoint == 'public.new_ticket' %}active{% endif %}"
+           title="{{ 'تقديم طلب دعم جديد' if lang == 'ar' else 'Submit a new support request' }}">
+          <i class="fas fa-plus-circle"></i> {{ 'طلب دعم جديد' if lang == 'ar' else 'New Request' }}
+        </a>
+        <a href="/lookup?lang={{ lang }}" class="{% if request.endpoint in ['public.lookup','public.ticket_status'] %}active{% endif %}"
+           title="{{ 'الاستعلام عن حالة تذكرة' if lang == 'ar' else 'Look up a ticket status' }}">
+          <i class="fas fa-search"></i> {{ 'استعلام' if lang == 'ar' else 'Lookup' }}
+        </a>
+        <a href="?lang={{ 'en' if lang == 'ar' else 'ar' }}" title="{{ 'تبديل اللغة' if lang == 'ar' else 'Switch language' }}">
+          <i class="fas fa-globe"></i> {{ 'EN' if lang == 'ar' else 'عربي' }}
+        </a>
+        <a href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"
+           title="{{ 'تثبيت التطبيق على الجهاز' if lang == 'ar' else 'Install the app on this device' }}">
+          <i class="fas fa-download"></i> {{ 'تثبيت' if lang == 'ar' else 'Install' }}
+        </a>
+      </nav>
+    </div>
+  </div>
+  <script>
+    // The ticker (fixed) and topbar now live together in one fixed header
+    // block, instead of being two independently-fixed/sticky elements
+    // that had to agree on an offset — far less fragile, and it's what
+    // fixed content actually scrolling *through* the transparent ticker
+    // on the way up: the topbar is opaque and part of the same fixed
+    // block, so nothing can ever pass behind the ticker in the first
+    // place. Re-run whenever the header's real height might have
+    // changed (e.g. once the ticker decides to show itself).
+    function updateHeaderSpacing() {
+      const h = document.getElementById('siteHeaderFixed').offsetHeight;
+      document.querySelector('.container').style.top = h + 'px';
+    }
+    updateHeaderSpacing();
+    window.addEventListener('resize', updateHeaderSpacing);
+  </script>
+
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+
+  {% block extra_scripts %}{% endblock %}
+
+  <script>
+    const PWA_LANG_AR = {{ 'true' if lang == 'ar' else 'false' }};
+
+    function updateTopbarClock() {
+      const el = document.getElementById('topbarClock');
+      if (!el) return;
+      const now = new Date();
+      const opts = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', numberingSystem: 'latn' };
+      el.textContent = now.toLocaleString(PWA_LANG_AR ? 'ar' : 'en-US', opts);
+    }
+    updateTopbarClock();
+    setInterval(updateTopbarClock, 30000);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+
+    let deferredInstallPrompt = null;
+    const installBtn = document.getElementById('installAppBtn');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                       || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+    if (!isStandalone) {
+      if (isIOS) {
+        if (installBtn) installBtn.style.display = 'flex';
+      } else {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          deferredInstallPrompt = e;
+          if (installBtn) installBtn.style.display = 'flex';
+        });
+      }
+    }
+
+    function handleInstallClick(e) {
+      e.preventDefault();
+      if (isIOS) {
+        alert(PWA_LANG_AR
+          ? 'لإضافة الموقع للشاشة الرئيسية:\n١) اضغط زر المشاركة ⬆️ بأسفل الشاشة\n٢) اختر "Add to Home Screen"'
+          : 'To add this to your Home Screen:\n1) Tap the Share button ⬆️\n2) Choose "Add to Home Screen"');
+        return;
+      }
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.finally(() => {
+          deferredInstallPrompt = null;
+          if (installBtn) installBtn.style.display = 'none';
+        });
+      }
+    }
+
+    window.addEventListener('appinstalled', () => {
+      if (installBtn) installBtn.style.display = 'none';
+    });
+  </script>
+</body>
+</html>

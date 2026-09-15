@@ -1,0 +1,19 @@
+{% extends "base_public.html" %}
+{% block title %}{{ 'الصفحة الرئيسية' if lang == 'ar' else 'Home' }}{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center">
+  <h1 class="page-title" style="text-align:center">{{ 'نظام طلب الدعم الفني' if lang == 'ar' else 'IT Support Request System' }}</h1>
+  <p class="page-sub" style="text-align:center">
+    {{ 'يمكن للمعلمين والمعلمات المسجلين تقديم طلب دعم فني ومتابعة حالته من هنا.' if lang == 'ar'
+       else 'Registered teachers can submit an IT support request and track its status here.' }}
+  </p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:10px">
+    <a class="btn btn-primary" href="/ticket?lang={{ lang }}" title="{{ 'تقديم طلب دعم جديد' if lang == 'ar' else 'Submit a new support request' }}">
+      <i class="fas fa-plus-circle"></i> {{ 'تقديم طلب دعم جديد' if lang == 'ar' else 'Submit a New Request' }}
+    </a>
+    <a class="btn btn-outline" href="/lookup?lang={{ lang }}" title="{{ 'الاستعلام عن حالة تذكرة' if lang == 'ar' else 'Look up a ticket status' }}">
+      <i class="fas fa-search"></i> {{ 'استعلام عن تذكرة' if lang == 'ar' else 'Look Up a Ticket' }}
+    </a>
+  </div>
+</div>
+{% endblock %}
