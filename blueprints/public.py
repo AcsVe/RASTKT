@@ -12,6 +12,16 @@ public_bp = Blueprint('public', __name__)
 STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'بانتظار الرد', 'closed': 'مغلقة'}
 STATUS_LABELS_EN = {'open': 'Open', 'in_progress': 'In Progress', 'waiting': 'Waiting', 'closed': 'Closed'}
 
+@public_bp.after_request
+def _persist_lang_choice(response):
+    """كل مرة يختار فيها المستخدم لغة صراحة عبر ?lang=، نحفظها في كوكي
+    طويل الأمد، حتى لا ترجع الصفحة للعربي تلقائيًا عند أي زيارة لاحقة
+    لا يحمل رابطها lang= (فتح PWA من الشاشة الرئيسية، رابط محفوظ، ...)."""
+    lang = request.args.get('lang')
+    if lang in ('ar', 'en'):
+        response.set_cookie('lang', lang, max_age=60 * 60 * 24 * 365, samesite='Lax')
+    return response
+
 
 def _lang():
     return request.args.get('lang') or request.cookies.get('lang', 'ar')
