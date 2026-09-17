@@ -70,6 +70,11 @@ XEqPZq2IE3k9g455XAokrxI6N2LhLDhtu3SMlEulXPw9IcShiKeKf2xO
         'VAPID_PUBLIC_KEY', 'BE5XVahFqk9oBxgyCRkwgaTrmz4hmmRcSo9mrYgTeT2DjnlcCiSvEjo3YuEsOG27dIyUS6Vc_D0hxKGIp4p_bE4')
     app.config['VAPID_CLAIMS_EMAIL'] = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:admin@example.com')
 
+    # Shared secret for the external cron trigger (see /cron/check-reminders
+    # below) — set this in your Render Cron Job / scheduler config as a
+    # query param or X-Cron-Secret header so random visitors can't trigger it.
+    app.config['CRON_SECRET'] = os.environ.get('CRON_SECRET', '')
+
     db.init_app(app)
     with app.app_context():
         init_db(app)
@@ -87,6 +92,22 @@ XEqPZq2IE3k9g455XAokrxI6N2LhLDhtu3SMlEulXPw9IcShiKeKf2xO
         resp.headers['Content-Type'] = 'application/javascript'
         resp.headers['Service-Worker-Allowed'] = '/'
         return resp
+
+    # Hit periodically by an external scheduler (Render Cron Job, etc.) to
+    # drive the auto-reminder feature — see utils/reminder_utils.py. Not
+    # gated behind the staff login (a cron job can't log in), but does
+    # require CRON_SECRET so it can't be triggered by anyone else.
+    @app.route('/cron/check-reminders', methods=['GET', 'POST'])
+    def cron_check_reminders():
+        from flask import request, jsonify
+        secret = app.config.get('CRON_SECRET', '')
+        provided = request.headers.get('X-Cron-Secret') or request.args.get('secret')
+        if not secret or provided != secret:
+            return jsonify({'error': 'forbidden'}), 403
+        from utils.reminder_utils import check_and_send_reminders
+        with app.app_context():
+            result = check_and_send_reminders()
+        return jsonify(result)
 
     return app
 
