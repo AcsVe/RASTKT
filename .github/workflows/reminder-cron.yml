@@ -1,0 +1,15 @@
+   name: Ticket Reminder Check
+
+   on:
+     schedule:
+       - cron: '*/30 * * * *'
+     workflow_dispatch: {}
+
+   jobs:
+     ping-reminder-endpoint:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Call /cron/check-reminders
+           run: |
+             curl -fsS -X POST \
+               "${{ secrets.RASTKT_BASE_URL }}/cron/check-reminders?secret=${{ secrets.RASTKT_CRON_SECRET }}"
