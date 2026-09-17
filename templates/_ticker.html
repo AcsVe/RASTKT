@@ -15,20 +15,26 @@
     display: none; /* JS reveals this (display:flex) once content is confirmed non-empty */
     align-items: center;
     pointer-events: auto; /* hover-to-pause needs the bar itself to receive the hover */
-    /* Always laid out LTR internally, regardless of page language: the
-       scroll animation below moves the track with translateX() in plain
-       physical pixels, and the two duplicated <span class="ticker-seg">
-       halves must stay in a fixed left-to-right order for that math (and
-       the left/right fade mask) to line up. On an Arabic page (<html
-       dir="rtl">) this would otherwise be silently inherited by the
-       ticker too, which flips the flex item order and breaks the loop —
-       items land outside the masked strip and it looks like only one
-       item ever shows. Direction is pinned here; each item's own text
-       still reads correctly (Arabic or English) via dir="auto" below. */
-    direction: ltr;
+    /* NOTE: direction is intentionally NOT forced here on the outer
+       positioned box — inset-inline-start/-end above must keep resolving
+       against the page's real direction (dir="rtl"/"ltr" on <html>), or
+       the admin sidebar offset (see dashboard.html's
+       "inset-inline-start: var(--sidebar)" override) ends up applied to
+       the wrong physical edge and the bar is misaligned/clipped. The
+       LTR-pinning that the scroll animation needs lives on .ticker-track
+       below instead, which has no positioning of its own. */
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 60px, #000 calc(100% - 60px), transparent 100%);
     mask-image: linear-gradient(to right, transparent 0, #000 60px, #000 calc(100% - 60px), transparent 100%);
   }
+  /* Always laid out LTR internally, regardless of page language: the
+     scroll animation below moves the track with translateX() in plain
+     physical pixels, and the two duplicated <span class="ticker-seg">
+     halves must stay in a fixed left-to-right order for that math (and
+     the left/right fade mask on the parent) to line up. Without this,
+     an Arabic page (<html dir="rtl">) silently flips the flex item
+     order here too, breaking the loop — items land outside the masked
+     strip and it looks like only one item ever shows. Each item's own
+     text still reads correctly (Arabic or English) via dir="auto". */
   #globalTicker .ticker-track { display: flex; width: max-content; will-change: transform; direction: ltr; }
   #globalTicker:hover .ticker-track { animation-play-state: paused; }
   #globalTicker .ticker-seg { display: flex; align-items: center; white-space: nowrap; direction: ltr; }
@@ -42,14 +48,21 @@
   #globalTicker .ticker-track.shadow-strong .ticker-item { text-shadow: 0 2px 5px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.9); }
   #globalTicker .ticker-item a { color: inherit; text-decoration: underline; }
   #globalTicker .ticker-item img.ticker-logo { height: 22px; vertical-align: middle; margin-right: 10px; }
+  /* ticker-scroll-ltr moves leftward (content exits on the left) — the
+     conventional news-ticker motion for LTR/English pages. ticker-scroll-rtl
+     moves rightward (content exits on the right) — its mirror, for
+     Arabic/RTL pages. Keep the class→keyframe pairing below matched to
+     that (dir-ltr → ticker-scroll-ltr, dir-rtl → ticker-scroll-rtl); the
+     two were previously swapped, which made both languages scroll
+     backwards from what people expect. */
   @keyframes ticker-scroll-ltr { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes ticker-scroll-rtl { from { transform: translateX(0); } to { transform: translateX(50%); } }
-  #globalTicker .ticker-track.dir-ltr { animation-name: ticker-scroll-rtl; }
-  #globalTicker .ticker-track.dir-rtl { animation-name: ticker-scroll-ltr; }
+  #globalTicker .ticker-track.dir-ltr { animation-name: ticker-scroll-ltr; }
+  #globalTicker .ticker-track.dir-rtl { animation-name: ticker-scroll-rtl; }
   #globalTicker .ticker-track { animation-timing-function: linear; animation-iteration-count: infinite; }
   @keyframes ticker-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-  #globalTicker .ticker-track.pulse-on { animation-name: ticker-scroll-rtl, ticker-pulse; animation-iteration-count: infinite, infinite; animation-timing-function: linear, ease-in-out; }
-  #globalTicker .ticker-track.pulse-on.dir-rtl { animation-name: ticker-scroll-ltr, ticker-pulse; }
+  #globalTicker .ticker-track.pulse-on { animation-name: ticker-scroll-ltr, ticker-pulse; animation-iteration-count: infinite, infinite; animation-timing-function: linear, ease-in-out; }
+  #globalTicker .ticker-track.pulse-on.dir-rtl { animation-name: ticker-scroll-rtl, ticker-pulse; }
   @media (max-width: 640px) {
     #globalTicker { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); }
     #globalTicker .ticker-item { font-size: .88rem; padding-right: 30px; }
