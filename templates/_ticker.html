@@ -42,7 +42,7 @@
     color: #fff; font-weight: 800; font-size: 1rem;
     padding-right: 46px; /* physical (not inline-end): the flex flow itself is pinned LTR above, so the gap
                              must stay on the visual right regardless of each item's own resolved text direction */
-    unicode-bidi: plaintext; /* each item's own script (Arabic/English) still reads in its natural direction */
+    white-space: nowrap; /* explicit, not just inherited — see the dir="auto" note in the JS */
   }
   #globalTicker .ticker-track.shadow-light .ticker-item { text-shadow: 0 1px 3px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.45); }
   #globalTicker .ticker-track.shadow-strong .ticker-item { text-shadow: 0 2px 5px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.9); }
@@ -134,13 +134,28 @@
       track.classList.add(isRtl ? 'dir-rtl' : 'dir-ltr');
       if (data.textShadow === 'strong') track.classList.add('shadow-strong');
       else if (data.textShadow !== 'none') track.classList.add('shadow-light');
+      if (data.pulse) track.classList.add('pulse-on');
+
+      // Reveal (still 0-width content isn't measurable while display:none)
+      // before computing the animation duration below.
+      bar.style.display = 'flex';
+      document.body.classList.add('has-ticker');
+      if (window.updateHeaderSpacing) window.updateHeaderSpacing();
+
+      // Constant physical speed (px/second) instead of a fixed duration
+      // for a full loop: the Arabic and English content are two
+      // completely different strings with different total widths, so a
+      // shared "speedSeconds" duration made one visibly crawl and the
+      // other visibly race even though the admin only set one speed.
+      // speedSeconds is instead treated as "how many seconds a loop
+      // would take at a reference width (900px)" and converted to a
+      // px/second rate that both languages then share, so they always
+      // look like they're moving at the same speed.
       const speedSeconds = data.speedSeconds || 25;
-      let duration = `${speedSeconds}s`;
-      if (data.pulse) {
-        track.classList.add('pulse-on');
-        duration += `, ${data.pulseSeconds || 1.6}s`;
-      }
-      track.style.animationDuration = duration;
+      const pxPerSecond = 900 / speedSeconds;
+      const segWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
+      const duration = segWidth > 0 ? Math.max(3, segWidth / pxPerSecond) : speedSeconds;
+      track.style.animationDuration = data.pulse ? `${duration}s, ${data.pulseSeconds || 1.6}s` : `${duration}s`;
 
       // Reloading (e.g. right after saving a settings change) would
       // otherwise hard-reset the animation to its 0% starting position —
@@ -148,12 +163,8 @@
       // just reversed. A negative delay resumes from roughly the same
       // point in the cycle instead, so it reads as continuous.
       if (window.__tickerStart == null) window.__tickerStart = Date.now();
-      const elapsed = ((Date.now() - window.__tickerStart) / 1000) % speedSeconds;
+      const elapsed = ((Date.now() - window.__tickerStart) / 1000) % duration;
       track.style.animationDelay = `-${elapsed}s`;
-
-      bar.style.display = 'flex';
-      document.body.classList.add('has-ticker');
-      if (window.updateHeaderSpacing) window.updateHeaderSpacing();
     }).catch(() => {});
   };
 
