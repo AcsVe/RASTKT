@@ -190,12 +190,25 @@ def add_public_comment(tracking_code):
             body=body, internal=False, created_at=datetime.utcnow(),
         )
         db.session.add(comment)
+        ticket.reminder_sent = False
         db.session.commit()
 
         try:
             if ticket.assignee and ticket.assignee.email:
                 send_new_comment_notification(_ticket_email_ctx(ticket), comment.to_dict(),
-                                                ticket.assignee.email, ticket.assignee.full_name)
+                                                ticket.assignee.email, ticket.assignee.full_name, to_teacher=False)
+            elif not ticket.assignee_id:
+                # Nobody is assigned yet — make sure a public reply doesn't
+                # go completely unnoticed by falling back to System
+                # Admins/Administrators.
+                from models import StaffUser, ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR
+                admins = StaffUser.query.filter(
+                    StaffUser.role.in_([ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR]), StaffUser.active.isnot(False)
+                ).all()
+                for a in admins:
+                    if a.email:
+                        send_new_comment_notification(_ticket_email_ctx(ticket), comment.to_dict(),
+                                                        a.email, a.full_name, to_teacher=False)
             if ticket.assignee_id:
                 from utils.push_utils import send_push_to_staff
                 send_push_to_staff(current_app._get_current_object(), ticket.assignee_id,
@@ -242,6 +255,51 @@ def api_ticker():
 def api_categories():
     categories = Category.query.filter_by(active=True).order_by(Category.sort_order).all()
     return jsonify([c.to_dict(with_items=True) for c in categories])
+
+
+# ── Monitoring (public, no login — tickets view + reports only) ───────────
+@public_bp.route('/monitoring')
+def monitoring():
+    lang = _lang()
+    return render_template('monitoring.html', lang=lang)
+
+
+@public_bp.route('/api/monitoring/tickets')
+def api_monitoring_tickets():
+    q = Ticket.query.filter(Ticket.merged_into_id.is_(None))
+    status = request.args.get('status', 'all')
+    if status != 'all':
+        q = q.filter_by(status=status)
+    tickets = q.order_by(Ticket.created_at.desc()).limit(500).all()
+    return jsonify([t.to_monitor_dict() for t in tickets])
+
+
+@public_bp.route('/api/monitoring/stats')
+def api_monitoring_stats():
+    base = Ticket.query.filter(Ticket.merged_into_id.is_(None))
+    total = base.count()
+    by_status = {s: base.filter_by(status=s).count() for s in ('open', 'in_progress', 'waiting', 'closed')}
+    by_priority = {p: base.filter_by(priority=p).count() for p in ('low', 'medium', 'high')}
+
+    by_category = {}
+    for row in db.session.query(Ticket.category_name, db.func.count(Ticket.id)) \
+            .filter(Ticket.merged_into_id.is_(None)).group_by(Ticket.category_name).all():
+        by_category[row[0] or ''] = row[1]
+
+    # Average time-to-close, in hours, for tickets that have actually
+    # been closed — a simple, useful "how are we doing" number for the
+    # Reports view.
+    closed = base.filter(Ticket.status == 'closed', Ticket.closed_at.isnot(None)).all()
+    if closed:
+        total_seconds = sum((t.closed_at - t.created_at).total_seconds() for t in closed if t.created_at)
+        avg_close_hours = round((total_seconds / len(closed)) / 3600, 1)
+    else:
+        avg_close_hours = None
+
+    return jsonify({
+        'total': total, 'byStatus': by_status, 'byPriority': by_priority,
+        'byCategory': by_category, 'avgCloseHours': avg_close_hours,
+    })
 
 
 # ── Uploaded attachments ──────────────────────────────────────────────────
