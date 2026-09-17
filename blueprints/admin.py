@@ -10,7 +10,8 @@ from models import (db, Ticket, TicketComment, Teacher, Category, CategoryItem,
                      ROLE_LABELS_AR, ROLE_LABELS_EN, PRIORITIES, get_setting, set_setting)
 from utils.helpers import is_valid_email, sanitize_text, db_ilike
 from utils.email_utils import (send_ticket_assigned, send_ticket_closed, send_ticket_reopened,
-                                send_ticket_merged, send_new_comment_notification, send_priority_changed)
+                                send_ticket_merged, send_new_comment_notification, send_priority_changed,
+                                send_internal_note_notification)
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -199,6 +200,7 @@ def api_assign(ticket_id):
 
     ticket.assignee_id = assignee.id
     ticket.assigned_at = datetime.utcnow()
+    ticket.reminder_sent = False
     if ticket.status == 'open':
         ticket.status = 'in_progress'
     db.session.add(TicketComment(
@@ -241,15 +243,26 @@ def api_comment(ticket_id):
         staff_id=staff.id, body=body, internal=internal, created_at=datetime.utcnow(),
     )
     db.session.add(comment)
+    ticket.reminder_sent = False
     db.session.commit()
 
     if not internal:
         try:
             if ticket.teacher_email:
                 send_new_comment_notification(_ticket_email_ctx(ticket), comment.to_dict(),
-                                                ticket.teacher_email, ticket.teacher_name)
+                                                ticket.teacher_email, ticket.teacher_name, to_teacher=True)
         except Exception as e:
             print(f"[email] comment notify failed: {e}", flush=True)
+    else:
+        try:
+            emails = [s.email for s in StaffUser.query.filter(
+                StaffUser.role.in_([ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR]),
+                StaffUser.active.isnot(False), StaffUser.id != staff.id,
+            ).all() if s.email]
+            if emails:
+                send_internal_note_notification(_ticket_email_ctx(ticket), comment.to_dict(), emails)
+        except Exception as e:
+            print(f"[email] internal note notify failed: {e}", flush=True)
 
     return jsonify(ticket.to_dict())
 
@@ -297,6 +310,7 @@ def api_reopen(ticket_id):
     ticket.status = 'in_progress' if ticket.assignee_id else 'open'
     ticket.reopened_at = datetime.utcnow()
     ticket.archived = False
+    ticket.reminder_sent = False
     db.session.add(TicketComment(
         ticket_id=ticket.id, author_role='system', author_name='',
         body=('تم إعادة فتح التذكرة' if session.get('admin_lang', 'ar') == 'ar' else 'Ticket reopened'),
@@ -343,6 +357,7 @@ def api_resume(ticket_id):
     if not staff.can_manage_ticket(ticket):
         return jsonify({'error': 'forbidden'}), 403
     ticket.status = 'in_progress' if ticket.assignee_id else 'open'
+    ticket.reminder_sent = False
     db.session.add(TicketComment(
         ticket_id=ticket.id, author_role='system', author_name='',
         body=('تم استئناف متابعة التذكرة' if session.get('admin_lang', 'ar') == 'ar' else 'Ticket follow-up resumed'),
@@ -447,7 +462,7 @@ def api_merge():
 
     try:
         if drop.teacher_email:
-            send_ticket_merged(_ticket_email_ctx(drop), keep.serial_number)
+            send_ticket_merged(_ticket_email_ctx(drop), keep.serial_number, keep.tracking_code)
     except Exception as e:
         print(f"[email] merge notify failed: {e}", flush=True)
 
@@ -821,6 +836,49 @@ def api_set_settings():
     if 'allowExternalSubmitters' in data:
         set_setting('allow_external_submitters', '1' if data['allowExternalSubmitters'] else '0')
     return jsonify({'allowExternalSubmitters': get_setting('allow_external_submitters', '0') == '1'})
+
+
+# ── Auto reminder for unprocessed tickets ───────────────────────────────────
+@admin_bp.route('/api/reminder-settings')
+@login_required
+def api_get_reminder_settings():
+    return jsonify({
+        'enabled': get_setting('auto_reminder_enabled', '0') == '1',
+        'hours': int(float(get_setting('auto_reminder_hours', '24') or 24)),
+    })
+
+
+@admin_bp.route('/api/reminder-settings', methods=['POST'])
+@login_required
+def api_set_reminder_settings():
+    staff = current_staff()
+    if not staff.is_system_admin_or_above():
+        return jsonify({'error': 'forbidden'}), 403
+    data = request.get_json(silent=True) or {}
+    if 'enabled' in data:
+        set_setting('auto_reminder_enabled', '1' if data['enabled'] else '0')
+    if 'hours' in data:
+        try:
+            hours = max(1, min(720, int(data['hours'])))
+            set_setting('auto_reminder_hours', str(hours))
+        except (TypeError, ValueError):
+            pass
+    return jsonify({
+        'enabled': get_setting('auto_reminder_enabled', '0') == '1',
+        'hours': int(float(get_setting('auto_reminder_hours', '24') or 24)),
+    })
+
+
+@admin_bp.route('/api/reminder-check-now', methods=['POST'])
+@login_required
+def api_reminder_check_now():
+    """Lets a System Admin/Administrator trigger a check on demand
+    (useful for testing, without waiting for the external cron)."""
+    staff = current_staff()
+    if not staff.is_system_admin_or_above():
+        return jsonify({'error': 'forbidden'}), 403
+    from utils.reminder_utils import check_and_send_reminders
+    return jsonify(check_and_send_reminders())
 
 
 # ── Scrolling ticker (global announcement marquee) ─────────────────────────
