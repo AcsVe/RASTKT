@@ -1,0 +1,144 @@
+<!-- ── Global scrolling ticker (announcement marquee) ───────────────────────
+     Fully transparent background, bold white text with a soft shadow for
+     legibility over any page background, fades out at the left/right
+     edges via a CSS mask, and mirrors its scroll direction automatically
+     with the page's current language (RTL for Arabic, LTR otherwise).
+     Fixed to the very top of the viewport so it stays put while the page
+     scrolls. Given a deliberately fixed, known height (38px) instead of
+     one measured at runtime — a page reserving that exact amount of
+     space via CSS alone (see .has-ticker below) is far more reliable
+     than racing a JS measurement against first paint. -->
+<style>
+  #globalTicker {
+    position: fixed; top: 0; inset-inline-start: 0; inset-inline-end: 0; z-index: 50;
+    height: 38px; overflow: hidden; /* width comes from inset-inline-start/end, not a fixed 100% — see the frozen-sidebar override below */
+    display: none; /* JS reveals this (display:flex) once content is confirmed non-empty */
+    align-items: center;
+    pointer-events: auto; /* hover-to-pause needs the bar itself to receive the hover */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 60px, #000 calc(100% - 60px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 60px, #000 calc(100% - 60px), transparent 100%);
+  }
+  #globalTicker .ticker-track {
+    display: flex; width: max-content; will-change: transform;
+    /* Flex layout must stay physically left→right regardless of the page's
+       own RTL/LTR direction — otherwise an RTL (Arabic) page mirrors the
+       flex item order, which breaks the seamless duplicate-segment loop
+       (the "jumps/looks stuck after one pass" bug) and reverses which way
+       it visually scrolls. Each item's own text still renders in its
+       correct script direction via dir="auto" on the item itself, below. */
+    direction: ltr;
+  }
+  #globalTicker:hover .ticker-track { animation-play-state: paused; }
+  #globalTicker .ticker-seg { display: flex; align-items: center; white-space: nowrap; }
+  #globalTicker .ticker-item {
+    color: #fff; font-weight: 800; font-size: 1rem;
+    padding-inline-end: 46px;
+  }
+  #globalTicker .ticker-track.shadow-light .ticker-item { text-shadow: 0 1px 3px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.45); }
+  #globalTicker .ticker-track.shadow-strong .ticker-item { text-shadow: 0 2px 5px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.9); }
+  #globalTicker .ticker-item a { color: inherit; text-decoration: underline; }
+  #globalTicker .ticker-item img.ticker-logo { height: 22px; vertical-align: middle; margin-inline-end: 10px; }
+  @keyframes ticker-scroll-ltr { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes ticker-scroll-rtl { from { transform: translateX(0); } to { transform: translateX(50%); } }
+  #globalTicker .ticker-track.dir-ltr { animation-name: ticker-scroll-rtl; }
+  #globalTicker .ticker-track.dir-rtl { animation-name: ticker-scroll-ltr; }
+  #globalTicker .ticker-track { animation-timing-function: linear; animation-iteration-count: infinite; }
+  @keyframes ticker-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  #globalTicker .ticker-track.pulse-on { animation-name: ticker-scroll-rtl, ticker-pulse; animation-iteration-count: infinite, infinite; animation-timing-function: linear, ease-in-out; }
+  #globalTicker .ticker-track.pulse-on.dir-rtl { animation-name: ticker-scroll-ltr, ticker-pulse; }
+  @media (max-width: 640px) {
+    #globalTicker { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); }
+    #globalTicker .ticker-item { font-size: .88rem; padding-inline-end: 30px; }
+  }
+</style>
+<div id="globalTicker"><div class="ticker-track" id="tickerTrack"></div></div>
+<script>
+(function () {
+  const ORG_LOGO = {{ (config.LOGO_URL or '')|tojson }};
+  const PAGE_LANG = {{ (lang or 'ar')|tojson }};
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function extractSegments(html) {
+    if (!html) return [];
+    const matches = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
+    const blocks = matches.length ? matches.map(m => m[1]) : [html];
+    return blocks
+      .map(b => b.replace(/<br\s*\/?>/gi, '').trim())
+      .filter(b => b && b.replace(/&nbsp;/gi, '').trim());
+  }
+
+  // Exposed globally so the admin's ticker-settings save button can call
+  // this directly for an instant live preview, instead of the person
+  // having to reload the whole page to see a new speed/pulse/color.
+  window.reloadTicker = function () {
+    const bar = document.getElementById('globalTicker');
+    const track = document.getElementById('tickerTrack');
+    // Reset before re-fetching, in case the ticker just got disabled or
+    // its content became empty.
+    bar.style.display = 'none';
+    track.className = 'ticker-track'; // reset only the toggle classes below — this must keep the base class
+    track.style.animationDuration = '';
+    track.style.animationDelay = '';
+
+    return fetch('/api/ticker').then(r => r.json()).then(data => {
+      if (!data || !data.enabled) return;
+
+      const contentHtml = PAGE_LANG === 'en' ? (data.htmlEn || data.html) : (data.html || data.htmlEn);
+      const manualSegments = extractSegments(contentHtml).map(s => `<span class="ticker-item" dir="auto">${s}</span>`);
+      // RSS-sourced items get their own optional color/weight/size and
+      // dir="auto" so each headline's own script (Arabic vs English,
+      // mixed feeds, etc.) renders in its own correct direction
+      // regardless of the page's overall direction.
+      const rssStyleParts = [];
+      if (data.rssColor) rssStyleParts.push(`color:${data.rssColor}`);
+      if (data.rssBold) rssStyleParts.push('font-weight:800');
+      if (data.rssFontSize) rssStyleParts.push(`font-size:${data.rssFontSize}px`);
+      const rssStyle = rssStyleParts.length ? ` style="${rssStyleParts.join(';')}"` : '';
+      const rssSegments = (data.rssItems || []).map(it => {
+        const title = escapeHtml(it.title);
+        const inner = it.link ? `<a href="${it.link}" target="_blank" rel="noopener">${title}</a>` : title;
+        return `<span class="ticker-item"${rssStyle} dir="auto">${inner}</span>`;
+      });
+
+      const sep = (data.logoBetween && ORG_LOGO) ? `<img class="ticker-logo" src="${ORG_LOGO}" alt="">` : '';
+      const segments = [...manualSegments, ...rssSegments];
+      if (!segments.length) return;
+      // The logo (if enabled) goes inside each item, right before its text.
+      const itemsHtml = segments
+        .map(s => sep ? s.replace('>', `>${sep}`) : s)
+        .join('');
+
+      const isRtl = document.documentElement.dir === 'rtl';
+      track.innerHTML = `<span class="ticker-seg">${itemsHtml}</span><span class="ticker-seg" aria-hidden="true">${itemsHtml}</span>`;
+      track.classList.add(isRtl ? 'dir-rtl' : 'dir-ltr');
+      if (data.textShadow === 'strong') track.classList.add('shadow-strong');
+      else if (data.textShadow !== 'none') track.classList.add('shadow-light');
+      const speedSeconds = data.speedSeconds || 25;
+      let duration = `${speedSeconds}s`;
+      if (data.pulse) {
+        track.classList.add('pulse-on');
+        duration += `, ${data.pulseSeconds || 1.6}s`;
+      }
+      track.style.animationDuration = duration;
+
+      // Reloading (e.g. right after saving a settings change) would
+      // otherwise hard-reset the animation to its 0% starting position —
+      // a sudden jump that, mid-scroll, looks exactly like the direction
+      // just reversed. A negative delay resumes from roughly the same
+      // point in the cycle instead, so it reads as continuous.
+      if (window.__tickerStart == null) window.__tickerStart = Date.now();
+      const elapsed = ((Date.now() - window.__tickerStart) / 1000) % speedSeconds;
+      track.style.animationDelay = `-${elapsed}s`;
+
+      bar.style.display = 'flex';
+      document.body.classList.add('has-ticker');
+      if (window.updateHeaderSpacing) window.updateHeaderSpacing();
+    }).catch(() => {});
+  };
+
+  window.reloadTicker();
+})();
+</script>
