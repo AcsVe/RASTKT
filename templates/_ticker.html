@@ -42,8 +42,14 @@
     color: #fff; font-weight: 800; font-size: 1rem;
     padding-right: 46px; /* physical (not inline-end): the flex flow itself is pinned LTR above, so the gap
                              must stay on the visual right regardless of each item's own resolved text direction */
-    white-space: nowrap; /* explicit, not just inherited — see the dir="auto" note in the JS */
+    white-space: nowrap !important; /* !important: admin-entered content can carry an inline
+                                        white-space/display style of its own (e.g. pasted from Word into
+                                        the Quill editor) which otherwise outranks this rule and wraps the
+                                        item onto a second line, clipped by the bar's fixed height — looks
+                                        like a "ghost line" trying to peek through underneath. */
+    display: inline-block !important;
   }
+  #globalTicker .ticker-item * { white-space: nowrap !important; }
   #globalTicker .ticker-track.shadow-light .ticker-item { text-shadow: 0 1px 3px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.45); }
   #globalTicker .ticker-track.shadow-strong .ticker-item { text-shadow: 0 2px 5px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.9); }
   #globalTicker .ticker-item a { color: inherit; text-decoration: underline; }
@@ -83,7 +89,16 @@
     const matches = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
     const blocks = matches.length ? matches.map(m => m[1]) : [html];
     return blocks
-      .map(b => b.replace(/<br\s*\/?>/gi, '').trim())
+      .map(b => b.replace(/<br\s*\/?>/gi, '').replace(/[\r\n\t]+/g, ' ').trim())
+      // Strip any "white-space:" / "display:" / "width:" declarations an
+      // admin's pasted content (e.g. from Word into the Quill editor)
+      // might carry on a nested span — those can force a wrap onto a
+      // second line despite the CSS nowrap rules above, which then gets
+      // clipped by the ticker's fixed height and looks like a stray
+      // "ghost line". Other inline formatting (color/bold/etc.) is left
+      // untouched.
+      .map(b => b.replace(/style="([^"]*)"/gi, (m, css) =>
+        `style="${css.split(';').filter(d => !/^\s*(white-space|display|width)\s*:/i.test(d)).join(';')}"`))
       .filter(b => b && b.replace(/&nbsp;/gi, '').trim());
   }
 
