@@ -341,7 +341,7 @@ def api_wait(ticket_id):
     ticket.status = 'waiting'
     db.session.add(TicketComment(
         ticket_id=ticket.id, author_role='system', author_name='',
-        body=('تم وضع التذكرة بانتظار الرد' if session.get('admin_lang', 'ar') == 'ar' else 'Ticket set to waiting'),
+        body=('تم وضع التذكرة كمعلقة' if session.get('admin_lang', 'ar') == 'ar' else 'Ticket set to waiting'),
         internal=True, created_at=datetime.utcnow(),
     ))
     db.session.commit()
