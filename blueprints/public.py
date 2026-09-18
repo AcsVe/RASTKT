@@ -295,6 +295,13 @@ def api_monitoring_stats():
     for row in db.session.query(Ticket.category_name, db.func.count(Ticket.id)) \
             .filter(Ticket.merged_into_id.is_(None)).group_by(Ticket.category_name).all():
         by_category[row[0] or ''] = row[1]
+    # Start every active category at 0 (same idea as by_priority above),
+    # so a category with no tickets yet still shows up in the report
+    # instead of silently disappearing — which read as "the report is
+    # stuck showing only one category" even though the grouping query
+    # itself was correct; it simply never had a 0 to show for the rest.
+    for cat in Category.query.filter_by(active=True).all():
+        by_category.setdefault(cat.name_ar, 0)
 
     # Average time-to-close, in hours, for tickets that have actually
     # been closed — a simple, useful "how are we doing" number for the
