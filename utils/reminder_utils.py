@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from models import db, Ticket, StaffUser, ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR, get_setting
 from utils.email_utils import send_ticket_unprocessed_reminder
 
-STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'بانتظار الرد', 'closed': 'مغلقة'}
+STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'معلقة', 'closed': 'مغلقة'}
 STATUS_LABELS_EN = {'open': 'Open', 'in_progress': 'In Progress', 'waiting': 'Waiting', 'closed': 'Closed'}
 
 
