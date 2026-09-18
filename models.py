@@ -252,6 +252,9 @@ class Ticket(db.Model):
         Monitoring page: no requester contact info (email/phone) and no
         internal-only comments."""
         return {
+            'id': self.id,  # needed so the frontend can look up the exact
+                             # ticket that was clicked (not just the first
+                             # one in whatever list is currently loaded)
             'serial': self.serial_number,
             'teacherName': self.teacher_name,
             'category': self.category_name or '',
@@ -262,6 +265,7 @@ class Ticket(db.Model):
             'assigneeName': self.assignee.full_name if self.assignee_id and self.assignee else '',
             'createdAt': self.created_at.isoformat() if self.created_at else '',
             'closedAt': self.closed_at.isoformat() if self.closed_at else '',
+            'archived': self.archived or False,
         }
 
 
