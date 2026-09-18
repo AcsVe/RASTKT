@@ -56,6 +56,25 @@ header button, header a.tool-btn {
 header button:hover, header a.tool-btn:hover { background: rgba(255,255,255,.28); }
 main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 
+/* Compact header on phones — the title/subtitle + refresh/EN/clock row
+   were wrapping onto 3 lines, eating a big chunk of a small screen and
+   making the fixed-header height harder to keep in sync (see the
+   clipping fix above). Tightening this is the direct fix for both. */
+@media (max-width: 640px) {
+  header { padding: 8px 12px; gap: 6px; }
+  header h1 { font-size: .95rem; }
+  header .sub { font-size: .68rem; opacity: .75; }
+  header .brand img { height: 30px; }
+  header .tools { gap: 6px; }
+  header button, header a.tool-btn { padding: 5px 10px; font-size: .72rem; }
+  #clock { display: none; } /* redundant with the device's own clock on a small screen; frees a whole line */
+  main { padding: 12px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat-card { padding: 10px; }
+  .stat-val { font-size: 1.35rem; }
+  .stat-label { font-size: .7rem; margin-top: 2px; }
+}
+
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .stat-card {
   background: var(--white); border-radius: 12px; padding: 16px; text-align: center;
@@ -153,10 +172,19 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
 </div>
 <script>
   // Same approach as base_public.html: re-measure the fixed header's real
-  // height (ticker + header together) whenever it might have changed —
-  // most importantly the moment the ticker decides to reveal itself —
-  // and offset the scrolling content pane by exactly that, so content can
-  // never scroll up behind the header/ticker.
+  // height (ticker + header together) and offset the scrollable content
+  // pane by exactly that, so content can never scroll up behind it.
+  //
+  // A fixed list of triggers (load, resize, ticker-reveal) isn't enough —
+  // the header's real height can also change later for reasons nothing
+  // explicitly calls this function for: the Arabic web font (Tajawal)
+  // finishing download and the header text reflowing/wrapping onto a
+  // second line, or the header simply wrapping differently on a narrow
+  // phone. When that happens after the reserved space was already set,
+  // the top of the page ends up clipped underneath the header. A
+  // ResizeObserver watches the header element itself and re-measures
+  // automatically whenever its real rendered size changes, for any
+  // reason — instead of trying to enumerate every possible trigger.
   function updateHeaderSpacing() {
     const header = document.getElementById('siteHeaderFixed');
     const container = document.querySelector('.container');
@@ -166,6 +194,14 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
   updateHeaderSpacing();
   window.addEventListener('resize', updateHeaderSpacing);
   document.addEventListener('DOMContentLoaded', updateHeaderSpacing);
+  window.addEventListener('load', updateHeaderSpacing);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(updateHeaderSpacing).catch(() => {});
+  }
+  if ('ResizeObserver' in window) {
+    const headerEl = document.getElementById('siteHeaderFixed');
+    if (headerEl) new ResizeObserver(updateHeaderSpacing).observe(headerEl);
+  }
 </script>
 
 <div class="container">
