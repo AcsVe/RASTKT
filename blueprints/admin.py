@@ -27,7 +27,7 @@ def _no_cache(resp):
     resp.headers['Pragma'] = 'no-cache'
     return resp
 
-STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'بانتظار الرد', 'closed': 'مغلقة'}
+STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'معلقة', 'closed': 'مغلقة'}
 STATUS_LABELS_EN = {'open': 'Open', 'in_progress': 'In Progress', 'waiting': 'Waiting', 'closed': 'Closed'}
 
 
