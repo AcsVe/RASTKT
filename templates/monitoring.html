@@ -56,12 +56,7 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .stat-card {
   background: var(--white); border-radius: 12px; padding: 16px; text-align: center;
   box-shadow: 0 2px 10px rgba(0,0,0,.06); border-top: 4px solid var(--primary);
-  cursor: pointer; border-width: 0 0 0 0; border-top-width: 4px; border-style: solid; border-top-color: var(--primary);
-  transition: transform .12s, box-shadow .12s; -webkit-tap-highlight-color: transparent;
 }
-.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.1); }
-.stat-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.stat-card.is-active { box-shadow: 0 0 0 2px var(--primary) inset, 0 6px 16px rgba(0,0,0,.1); }
 .stat-card.green { border-top-color: var(--green); } .stat-card.red { border-top-color: var(--red); }
 .stat-card.orange { border-top-color: var(--orange); } .stat-card.blue { border-top-color: var(--blue); }
 .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--primary); }
@@ -109,7 +104,6 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
 
 <header>
   <div class="brand">
-    {% if config.LOGO_URL %}<img src="{{ config.LOGO_URL }}" alt="logo">{% endif %}
     <div>
       <h1 id="pageTitle"></h1>
       <div class="sub" id="pageSub"></div>
@@ -230,19 +224,12 @@ function renderAll() {
 
   if (STATS) {
     const cards = [
-      ['total', STATS.total, '', 'all'], ['open', STATS.byStatus.open, 'red', 'open'],
-      ['in_progress', STATS.byStatus.in_progress, 'blue', 'in_progress'], ['waiting', STATS.byStatus.waiting, 'orange', 'waiting'],
-      ['closed', STATS.byStatus.closed, 'green', 'closed'],
+      ['total', STATS.total, ''], ['open', STATS.byStatus.open, 'red'],
+      ['in_progress', STATS.byStatus.in_progress, 'blue'], ['waiting', STATS.byStatus.waiting, 'orange'],
+      ['closed', STATS.byStatus.closed, 'green'],
     ];
-    // Cards double as status filters — click/tap or Enter/Space toggles
-    // the same filter the buttons below the tickets table use, so this
-    // top summary row isn't just a static readout.
-    document.getElementById('statsGrid').innerHTML = cards.map(([key, val, cls, filterVal]) => `
-      <div class="stat-card ${cls} ${statusFilter === filterVal ? 'is-active' : ''}" role="button" tabindex="0"
-           onclick="setStatusFilter('${filterVal}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStatusFilter('${filterVal}')}"
-           title="${s(key)}">
-        <div class="stat-val">${val ?? 0}</div><div class="stat-label">${s(key)}</div>
-      </div>
+    document.getElementById('statsGrid').innerHTML = cards.map(([key, val, cls]) => `
+      <div class="stat-card ${cls}"><div class="stat-val">${val ?? 0}</div><div class="stat-label">${s(key)}</div></div>
     `).join('');
 
     const maxCat = Math.max(1, ...Object.values(STATS.byCategory || {}));
