@@ -9,7 +9,7 @@ from utils.email_utils import send_ticket_confirmation, send_new_comment_notific
 public_bp = Blueprint('public', __name__)
 
 
-STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'بانتظار الرد', 'closed': 'مغلقة'}
+STATUS_LABELS_AR = {'open': 'مفتوحة', 'in_progress': 'قيد المعالجة', 'waiting': 'معلقة', 'closed': 'مغلقة'}
 STATUS_LABELS_EN = {'open': 'Open', 'in_progress': 'In Progress', 'waiting': 'Waiting', 'closed': 'Closed'}
 
 @public_bp.after_request
