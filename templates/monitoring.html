@@ -27,13 +27,17 @@
   --green: #27ae60; --red: #c0392b; --orange: #e67e22; --blue: #2E4E7A;
 }
 * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-/* _ticker.html positions itself fixed at top:0 regardless of the page
-   around it; this page's own header is normal in-flow (not fixed), so
-   push it down by the ticker's fixed 38px height once the ticker
-   actually has content to show (JS adds .has-ticker to body — see
-   _ticker.html). */
-body.has-ticker header { margin-top: 38px; }
+html { height: 100%; }
+body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); height: 100%; overflow: hidden; }
+/* Same fixed-header pattern as the rest of the site (see base_public.html):
+   the ticker and the header live together in ONE fixed block instead of
+   being independently positioned, and the scrollable content below is its
+   own pane offset by the fixed block's real (JS-measured) height — so
+   page content can never physically scroll up behind/through the ticker,
+   which is what caused the earlier overlap. */
+#siteHeaderFixed { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+#siteHeaderFixed #globalTicker { position: static; z-index: auto; }
+.container { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; overflow-y: auto; }
 header {
   background: linear-gradient(135deg, var(--secondary-dark), var(--secondary));
   color: #fff; padding: 14px 22px; display: flex; align-items: center; justify-content: space-between;
@@ -78,7 +82,11 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 th, td { padding: 9px 10px; text-align: start; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { color: var(--muted); font-weight: 800; font-size: .76rem; text-transform: uppercase; }
+th { color: var(--muted); font-weight: 800; font-size: .76rem; text-transform: uppercase; cursor: pointer; user-select: none; }
+th:hover { color: var(--primary); }
+th .sort-arrow { font-size: .68rem; opacity: .55; margin-inline-start: 4px; }
+th.sorted .sort-arrow { opacity: 1; color: var(--primary); }
+tr.ticket-row { cursor: pointer; }
 tr:hover td { background: #fafcfc; }
 .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 800; }
 .badge-open { background: #fdecea; color: var(--red); }
@@ -96,27 +104,67 @@ tr:hover td { background: #fafcfc; }
 
 .empty { text-align: center; color: var(--muted); padding: 24px; font-size: .85rem; }
 footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--muted); }
+
+/* Ticket detail modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(20,30,32,.5);
+  align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--white); border-radius: 14px; max-width: 480px; width: 100%;
+  max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 16px 20px;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--white);
+}
+.modal-head h3 { font-size: 1.05rem; color: var(--primary); font-weight: 800; }
+.modal-close { background: #eef2f3; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 1rem; color: var(--text); }
+.modal-body { padding: 18px 20px; }
+.modal-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: .88rem; }
+.modal-row:last-child { border-bottom: none; }
+.modal-row .k { color: var(--muted); font-weight: 700; flex-shrink: 0; }
+.modal-row .v { font-weight: 600; text-align: end; }
 </style>
 </head>
 <body>
 
-{% include "_ticker.html" %}
-
-<header>
-  <div class="brand">
-    <div>
-      <h1 id="pageTitle"></h1>
-      <div class="sub" id="pageSub"></div>
+<div id="siteHeaderFixed">
+  {% include "_ticker.html" %}
+  <header>
+    <div class="brand">
+      <div>
+        <h1 id="pageTitle"></h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
     </div>
-  </div>
-  <div class="tools">
-    <span class="sub" id="clock" style="font-size:.85rem;font-weight:700"></span>
-    <a href="#" class="tool-btn" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"></a>
-    <button onclick="toggleLang()" id="langBtn"></button>
-    <button onclick="loadAll()" id="refreshBtn"><i class="fas fa-rotate"></i></button>
-  </div>
-</header>
+    <div class="tools">
+      <span class="sub" id="clock" style="font-size:.85rem;font-weight:700"></span>
+      <a href="#" class="tool-btn" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"></a>
+      <button onclick="toggleLang()" id="langBtn"></button>
+      <button onclick="loadAll()" id="refreshBtn"><i class="fas fa-rotate"></i></button>
+    </div>
+  </header>
+</div>
+<script>
+  // Same approach as base_public.html: re-measure the fixed header's real
+  // height (ticker + header together) whenever it might have changed —
+  // most importantly the moment the ticker decides to reveal itself —
+  // and offset the scrolling content pane by exactly that, so content can
+  // never scroll up behind the header/ticker.
+  function updateHeaderSpacing() {
+    const header = document.getElementById('siteHeaderFixed');
+    const container = document.querySelector('.container');
+    if (!header || !container) return;
+    container.style.top = header.offsetHeight + 'px';
+  }
+  updateHeaderSpacing();
+  window.addEventListener('resize', updateHeaderSpacing);
+  document.addEventListener('DOMContentLoaded', updateHeaderSpacing);
+</script>
 
+<div class="container">
 <main>
   <div class="stats-grid" id="statsGrid"></div>
 
@@ -140,8 +188,13 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th id="thSerial"></th><th id="thCategory"></th><th id="thSubject"></th>
-          <th id="thPriority"></th><th id="thAssignee"></th><th id="thStatus"></th><th id="thDate"></th>
+          <th data-field="serial" onclick="sortBy('serial')" id="thSerial"></th>
+          <th data-field="category" onclick="sortBy('category')" id="thCategory"></th>
+          <th data-field="subject" onclick="sortBy('subject')" id="thSubject"></th>
+          <th data-field="priority" onclick="sortBy('priority')" id="thPriority"></th>
+          <th data-field="assigneeName" onclick="sortBy('assigneeName')" id="thAssignee"></th>
+          <th data-field="status" onclick="sortBy('status')" id="thStatus"></th>
+          <th data-field="createdAt" onclick="sortBy('createdAt')" id="thDate"></th>
         </tr></thead>
         <tbody id="ticketsBody"></tbody>
       </table>
@@ -150,14 +203,26 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
 </main>
 
 <footer id="footerNote"></footer>
+</div>
+
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="detailTitle"></h3>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
 
 <script>
 let AR = new URLSearchParams(location.search).get('lang') !== 'en';
 let STATS = null, TICKETS = [], statusFilter = 'all';
+let sortField = 'createdAt', sortDir = 'desc';
 
 const STR = {
   title: { ar: 'شاشة المتابعة', en: 'Monitoring' },
-  sub: { ar: 'عرض تفاصيل التذاكر والتقارير — بدون تسجيل دخول', en: 'Ticket details & reports — no login required' },
+  sub: { ar: 'عرض تفاصيل التذاكر والتقارير', en: 'Ticket details & reports' },
   refresh: { ar: 'تحديث', en: 'Refresh' },
   reports: { ar: 'التقارير', en: 'Reports' },
   byCategory: { ar: 'حسب التصنيف', en: 'By Category' },
@@ -173,6 +238,9 @@ const STR = {
   low: { ar: 'منخفضة', en: 'Low' }, medium: { ar: 'متوسطة', en: 'Medium' }, high: { ar: 'عالية', en: 'High' },
   unassigned: { ar: 'غير معيّن', en: 'Unassigned' }, empty: { ar: 'لا توجد نتائج', en: 'No results' },
   install: { ar: 'تثبيت', en: 'Install' },
+  detailTitle: { ar: 'تفاصيل التذكرة', en: 'Ticket Details' },
+  categoryItem: { ar: 'البند', en: 'Item' }, closedAt: { ar: 'تاريخ الإغلاق', en: 'Closed At' },
+  archived: { ar: 'مؤرشفة', en: 'Archived' }, yes: { ar: 'نعم', en: 'Yes' }, no: { ar: 'لا', en: 'No' },
   footer: { ar: 'هذه الشاشة للعرض فقط ولا تتضمن أي إجراءات إدارية أو بيانات اتصال المعلمين.',
             en: 'This screen is read-only — no admin actions and no teacher contact details are shown here.' },
 };
@@ -214,13 +282,14 @@ function renderAll() {
   document.getElementById('byPriorityLbl').textContent = s('byPriority');
   document.getElementById('ticketsTitle').textContent = s('tickets');
   document.getElementById('footerNote').textContent = s('footer');
-  document.getElementById('thSerial').textContent = s('serial');
-  document.getElementById('thCategory').textContent = s('category');
-  document.getElementById('thSubject').textContent = s('subject');
-  document.getElementById('thPriority').textContent = s('priority');
-  document.getElementById('thAssignee').textContent = s('assignee');
-  document.getElementById('thStatus').textContent = s('status');
-  document.getElementById('thDate').textContent = s('date');
+  document.getElementById('thSerial').innerHTML = `${s('serial')} <span class="sort-arrow">${arrow('serial')}</span>`;
+  document.getElementById('thCategory').innerHTML = `${s('category')} <span class="sort-arrow">${arrow('category')}</span>`;
+  document.getElementById('thSubject').innerHTML = `${s('subject')} <span class="sort-arrow">${arrow('subject')}</span>`;
+  document.getElementById('thPriority').innerHTML = `${s('priority')} <span class="sort-arrow">${arrow('priority')}</span>`;
+  document.getElementById('thAssignee').innerHTML = `${s('assignee')} <span class="sort-arrow">${arrow('assigneeName')}</span>`;
+  document.getElementById('thStatus').innerHTML = `${s('status')} <span class="sort-arrow">${arrow('status')}</span>`;
+  document.getElementById('thDate').innerHTML = `${s('date')} <span class="sort-arrow">${arrow('createdAt')}</span>`;
+  document.querySelectorAll('th[data-field]').forEach(th => th.classList.toggle('sorted', th.dataset.field === sortField));
 
   if (STATS) {
     const cards = [
@@ -252,9 +321,9 @@ function renderAll() {
     <button class="${statusFilter === f ? 'active' : ''}" onclick="setStatusFilter('${f}')">${s(f)}</button>
   `).join('');
 
-  document.getElementById('ticketsBody').innerHTML = TICKETS.map(tk => {
+  document.getElementById('ticketsBody').innerHTML = sortedTickets().map((tk, i) => {
     const created = (tk.createdAt || '').replace('T', ' ').slice(0, 16);
-    return `<tr>
+    return `<tr class="ticket-row" onclick="showDetail(${tk.id})">
       <td><strong style="color:var(--primary)">#${tk.serial}</strong></td>
       <td>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
       <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(tk.subject)}">${esc(tk.subject)}</td>
@@ -265,6 +334,60 @@ function renderAll() {
     </tr>`;
   }).join('') || `<tr><td colspan="7" class="empty">${s('empty')}</td></tr>`;
 }
+
+function arrow(field) {
+  if (field !== sortField) return '';
+  return sortDir === 'asc' ? '▲' : '▼';
+}
+
+function sortBy(field) {
+  if (sortField === field) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { sortField = field; sortDir = field === 'createdAt' ? 'desc' : 'asc'; }
+  renderAll();
+}
+
+function sortedTickets() {
+  const list = [...TICKETS];
+  list.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (sortField === 'serial') { av = Number(av) || 0; bv = Number(bv) || 0; }
+    else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return list;
+}
+
+function showDetail(id) {
+  const tk = TICKETS.find(t => t.id === id);
+  if (!tk) return;
+  document.getElementById('detailTitle').textContent = `${s('detailTitle')} #${tk.serial}`;
+  const rows = [
+    [s('category'), esc(tk.category) || '—'],
+    [s('categoryItem'), esc(tk.categoryItem) || '—'],
+    [s('subject'), esc(tk.subject) || '—'],
+    [s('priority'), s(tk.priority)],
+    [s('status'), s(tk.status)],
+    [s('assignee'), esc(tk.assigneeName) || s('unassigned')],
+    [s('date'), (tk.createdAt || '').replace('T', ' ').slice(0, 16) || '—'],
+    [s('closedAt'), tk.closedAt ? tk.closedAt.replace('T', ' ').slice(0, 16) : '—'],
+    [s('archived'), tk.archived ? s('yes') : s('no')],
+  ];
+  document.getElementById('detailBody').innerHTML = rows.map(([k, v]) =>
+    `<div class="modal-row"><span class="k">${k}</span><span class="v">${v}</span></div>`
+  ).join('');
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+// ESC closes the ticket detail popup.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
 
 function setStatusFilter(f) { statusFilter = f; loadAll(); }
 
