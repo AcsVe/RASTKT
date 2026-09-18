@@ -3,217 +3,326 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ 'المراقبة' if lang == 'ar' else 'Monitoring' }} — {{ config.ORG_AR }}</title>
+<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }} — {{ config.ORG_AR }}</title>
+
+<!-- PWA: Add to Home Screen (Android + iOS + Desktop) — same manifest/service
+     worker as the rest of the site, so this screen can be installed and
+     opened standalone (e.g. pinned as a dedicated office/TV display). -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1B3358">
 <link rel="icon" href="/static/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{ 'المتابعة' if lang == 'ar' else 'Monitoring' }}">
+<meta name="mobile-web-app-capable" content="yes">
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --primary: #FF5733; --secondary: #2E4E7A; --secondary-dark: #1B3358;
   --accent: {{ config.ACCENT_COLOR }};
-  --bg: #f0f4f5; --text: #1e2a2b; --muted: #6b7c7e; --border: #d4e4e6; --radius: 12px;
+  --bg: #f0f4f5; --white: #fff; --text: #1e2a2b; --muted: #6b7c7e; --border: #d4e4e6;
+  --green: #27ae60; --red: #c0392b; --orange: #e67e22; --blue: #2E4E7A;
 }
-/* This page is deliberately its own, minimal shell (not the full admin
-   dashboard chrome) — it must never grow login-only controls; see the
-   monitoring feature note in README. */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: {% if lang == 'ar' %}'Tajawal'{% else %}'Inter'{% endif %}, sans-serif;
-  background: var(--bg); color: var(--text); min-height: 100vh;
+* , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+/* _ticker.html positions itself fixed at top:0 regardless of the page
+   around it; this page's own header is normal in-flow (not fixed), so
+   push it down by the ticker's fixed 38px height once the ticker
+   actually has content to show (JS adds .has-ticker to body — see
+   _ticker.html). */
+body.has-ticker header { margin-top: 38px; }
+header {
+  background: linear-gradient(135deg, var(--secondary-dark), var(--secondary));
+  color: #fff; padding: 14px 22px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.2);
 }
-.topbar { background: linear-gradient(135deg, var(--secondary-dark), var(--secondary)); color: #fff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.topbar h1 { font-size: 1.05rem; font-weight: 800; }
-.topbar .sub { font-size: .78rem; opacity: .8; }
-.topbar-actions { display: flex; gap: 8px; align-items: center; }
-.lang-link { color: #fff; background: rgba(255,255,255,.12); padding: 6px 12px; border-radius: 8px; font-size: .8rem; font-weight: 700; text-decoration: none; }
-.tabs { display: flex; gap: 6px; padding: 14px 20px 0; }
-.tab-btn { background: #fff; border: 1.5px solid var(--border); border-bottom: none; padding: 9px 18px; border-radius: 10px 10px 0 0; font-family: inherit; font-weight: 700; font-size: .88rem; color: var(--muted); cursor: pointer; }
-.tab-btn.active { color: var(--primary); background: #fff; box-shadow: 0 -2px 8px rgba(0,0,0,.04); }
-.wrap { padding: 0 20px 30px; }
-.card { background: #fff; border-radius: var(--radius); box-shadow: 0 2px 12px rgba(0,0,0,.06); padding: 20px; margin-top: 14px; }
-.tab-panel { display: none; } .tab-panel.active { display: block; }
+header .brand { display: flex; align-items: center; gap: 12px; }
+header .brand img { height: 42px; background: #fff; border-radius: 8px; padding: 4px; }
+header h1 { font-size: 1.15rem; font-weight: 800; }
+header .sub { font-size: .78rem; opacity: .8; }
+header .tools { display: flex; align-items: center; gap: 10px; }
+header button, header a.tool-btn {
+  background: rgba(255,255,255,.15); border: none; color: #fff; padding: 7px 14px;
+  border-radius: 8px; font-weight: 700; font-size: .8rem; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+}
+header button:hover, header a.tool-btn:hover { background: rgba(255,255,255,.28); }
+main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 14px; }
-.stat { background: #fff; border-radius: var(--radius); padding: 16px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,.06); border-top: 4px solid var(--primary); }
-.stat b { display: block; font-size: 1.7rem; color: var(--primary); }
-.stat span { font-size: .78rem; color: var(--muted); font-weight: 700; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stat-card {
+  background: var(--white); border-radius: 12px; padding: 16px; text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06); border-top: 4px solid var(--primary);
+  cursor: pointer; border-width: 0 0 0 0; border-top-width: 4px; border-style: solid; border-top-color: var(--primary);
+  transition: transform .12s, box-shadow .12s; -webkit-tap-highlight-color: transparent;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.1); }
+.stat-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stat-card.is-active { box-shadow: 0 0 0 2px var(--primary) inset, 0 6px 16px rgba(0,0,0,.1); }
+.stat-card.green { border-top-color: var(--green); } .stat-card.red { border-top-color: var(--red); }
+.stat-card.orange { border-top-color: var(--orange); } .stat-card.blue { border-top-color: var(--blue); }
+.stat-val { font-size: 1.8rem; font-weight: 800; color: var(--primary); }
+.stat-card.green .stat-val { color: var(--green); } .stat-card.red .stat-val { color: var(--red); }
+.stat-card.orange .stat-val { color: var(--orange); } .stat-card.blue .stat-val { color: var(--blue); }
+.stat-label { font-size: .78rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
 
-.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-select.plain, input.search { padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: .85rem; }
-input.search { flex: 1; min-width: 180px; }
+.panel { background: var(--white); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 18px; }
+.panel h2 { font-size: .95rem; font-weight: 800; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 
-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
-th { background: #f0f7f8; color: var(--primary); font-weight: 700; padding: 9px 10px; text-align: start; white-space: nowrap; }
-td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-tr.clickable { cursor: pointer; } tr.clickable:hover td { background: #fafefe; }
-.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 700; }
-.badge-open { background: #fff3cd; color: #856404; }
-.badge-in_progress { background: #cfe2ff; color: #0b3d91; }
-.badge-waiting { background: #ffe5d0; color: #a3540c; }
-.badge-closed { background: #d1e7dd; color: #0a6640; }
-.priority-low { color: #6b7c7e; } .priority-medium { color: #1a5fb4; } .priority-high { color: #c0392b; font-weight: 800; }
+.reports-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 820px) { .reports-grid { grid-template-columns: 1fr; } }
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .82rem; }
+.bar-row .lbl { width: 150px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.bar-row .track { flex: 1; background: #eef2f3; border-radius: 6px; height: 14px; overflow: hidden; }
+.bar-row .fill { height: 100%; background: var(--primary); border-radius: 6px; }
+.bar-row .val { width: 34px; text-align: end; font-weight: 800; color: var(--primary); flex-shrink: 0; }
 
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 12px; }
-.modal-overlay.open { display: flex; }
-.modal { background: #fff; border-radius: 16px; padding: 22px; max-width: 560px; width: 100%; box-shadow: 0 12px 50px rgba(0,0,0,.22); }
-.modal-title { font-size: 1.02rem; font-weight: 800; color: var(--primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-.modal-close { background: none; border: none; font-size: 1.15rem; cursor: pointer; color: var(--muted); }
-.k { font-size: .74rem; color: var(--muted); font-weight: 700; }
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 10px 0; font-size: .88rem; }
-@media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } td[data-label]::before { content: attr(data-label) ": "; font-weight: 700; color: var(--muted); } }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+th, td { padding: 9px 10px; text-align: start; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 800; font-size: .76rem; text-transform: uppercase; }
+tr:hover td { background: #fafcfc; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 800; }
+.badge-open { background: #fdecea; color: var(--red); }
+.badge-in_progress { background: #eaf2fb; color: var(--blue); }
+.badge-waiting { background: #fff6e5; color: #b5820a; }
+.badge-closed { background: #e9f8ef; color: var(--green); }
+.priority-low { color: var(--green); } .priority-medium { color: #b5820a; } .priority-high { color: var(--red); font-weight: 800; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.filters button {
+  background: #eef2f3; border: none; padding: 6px 14px; border-radius: 20px; font-size: .8rem;
+  font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text);
+}
+.filters button.active { background: var(--primary); color: #fff; }
+
+.empty { text-align: center; color: var(--muted); padding: 24px; font-size: .85rem; }
+footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--muted); }
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div>
-    <h1>{{ 'شاشة المراقبة' if lang == 'ar' else 'Monitoring Screen' }}</h1>
-    <div class="sub">{{ config.ORG_AR }} — {{ config.ORG_EN }}</div>
-  </div>
-  <div class="topbar-actions">
-    <a class="lang-link" href="?lang={{ 'en' if lang == 'ar' else 'ar' }}">{{ 'EN' if lang == 'ar' else 'عربي' }}</a>
-  </div>
-</div>
 
-<div class="tabs">
-  <button class="tab-btn active" id="tabBtnTickets" onclick="showTab('tickets')"><i class="fas fa-ticket-alt"></i> <span id="lblTicketsTab"></span></button>
-  <button class="tab-btn" id="tabBtnReports" onclick="showTab('reports')"><i class="fas fa-chart-pie"></i> <span id="lblReportsTab"></span></button>
-</div>
+{% include "_ticker.html" %}
 
-<div class="wrap">
-  <div class="tab-panel active" id="panel-tickets">
-    <div class="card">
-      <div class="filter-bar">
-        <input type="text" class="search" id="searchBox" oninput="renderTickets()" placeholder="">
-        <select class="plain" id="filterStatus" onchange="loadTickets()"></select>
+<header>
+  <div class="brand">
+    {% if config.LOGO_URL %}<img src="{{ config.LOGO_URL }}" alt="logo">{% endif %}
+    <div>
+      <h1 id="pageTitle"></h1>
+      <div class="sub" id="pageSub"></div>
+    </div>
+  </div>
+  <div class="tools">
+    <span class="sub" id="clock" style="font-size:.85rem;font-weight:700"></span>
+    <a href="#" class="tool-btn" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"></a>
+    <button onclick="toggleLang()" id="langBtn"></button>
+    <button onclick="loadAll()" id="refreshBtn"><i class="fas fa-rotate"></i></button>
+  </div>
+</header>
+
+<main>
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="panel">
+    <h2><i class="fas fa-chart-pie"></i> <span id="reportsTitle"></span></h2>
+    <div class="reports-grid">
+      <div>
+        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byCategoryLbl"></h3>
+        <div id="byCategoryChart"></div>
       </div>
-      <div style="overflow-x:auto">
+      <div>
+        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byPriorityLbl"></h3>
+        <div id="byPriorityChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><i class="fas fa-list"></i> <span id="ticketsTitle"></span></h2>
+    <div class="filters" id="statusFilters"></div>
+    <div class="table-wrap">
       <table>
         <thead><tr>
-          <th id="thSerial"></th><th id="thTeacher"></th><th id="thCategory"></th>
-          <th id="thSubject"></th><th id="thPriority"></th><th id="thAssignee"></th>
-          <th id="thStatus"></th><th id="thDate"></th>
+          <th id="thSerial"></th><th id="thCategory"></th><th id="thSubject"></th>
+          <th id="thPriority"></th><th id="thAssignee"></th><th id="thStatus"></th><th id="thDate"></th>
         </tr></thead>
         <tbody id="ticketsBody"></tbody>
       </table>
-      </div>
     </div>
   </div>
+</main>
 
-  <div class="tab-panel" id="panel-reports">
-    <div class="stats-grid" id="statsGrid"></div>
-    <div class="card">
-      <div class="k" style="font-size:.85rem;margin-bottom:8px" id="byCategoryTitle"></div>
-      <table><tbody id="byCategoryBody"></tbody></table>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()">
-  <div class="modal" id="detailModalBody"></div>
-</div>
+<footer id="footerNote"></footer>
 
 <script>
-const AR = '{{ lang }}' !== 'en';
-const I18N_EN = {
-  'التذاكر': 'Tickets', 'التقارير': 'Reports', 'الرقم': 'Serial', 'المعلم': 'Teacher',
-  'التصنيف': 'Category', 'الموضوع': 'Subject', 'الأولوية': 'Priority', 'الموظف المسؤول': 'Assignee',
-  'الحالة': 'Status', 'التاريخ': 'Date', 'مفتوحة': 'Open', 'قيد المعالجة': 'In Progress',
-  'بانتظار الرد': 'Waiting', 'مغلقة': 'Closed', 'كل الحالات': 'All Statuses',
-  'بحث بالرقم أو الموضوع أو اسم المعلم...': 'Search by serial, subject, or teacher name...',
-  'غير معينة': 'Unassigned', 'الإجمالي': 'Total', 'منخفضة': 'Low', 'متوسطة': 'Medium', 'عالية': 'High',
-  'متوسط زمن الإغلاق (ساعة)': 'Avg. Close Time (hours)', '—': '—', 'لا توجد نتائج': 'No results',
-  'حسب التصنيف': 'By Category', 'تفاصيل التذكرة': 'Ticket Details', 'إغلاق النافذة': 'Close window',
-  'الوصف': 'Description', 'سجل المتابعة (العلني)': 'Follow-up Log (public)', 'لا توجد تعليقات بعد': 'No comments yet',
-  'الدعم الفني': 'IT Support',
+let AR = new URLSearchParams(location.search).get('lang') !== 'en';
+let STATS = null, TICKETS = [], statusFilter = 'all';
+
+const STR = {
+  title: { ar: 'شاشة المتابعة', en: 'Monitoring' },
+  sub: { ar: 'عرض تفاصيل التذاكر والتقارير — بدون تسجيل دخول', en: 'Ticket details & reports — no login required' },
+  refresh: { ar: 'تحديث', en: 'Refresh' },
+  reports: { ar: 'التقارير', en: 'Reports' },
+  byCategory: { ar: 'حسب التصنيف', en: 'By Category' },
+  byPriority: { ar: 'حسب الأولوية', en: 'By Priority' },
+  tickets: { ar: 'التذاكر', en: 'Tickets' },
+  serial: { ar: 'الرقم', en: '#' }, category: { ar: 'التصنيف', en: 'Category' },
+  subject: { ar: 'الموضوع', en: 'Subject' }, priority: { ar: 'الأولوية', en: 'Priority' },
+  assignee: { ar: 'الموظف المسؤول', en: 'Assignee' }, status: { ar: 'الحالة', en: 'Status' },
+  date: { ar: 'التاريخ', en: 'Date' },
+  total: { ar: 'الإجمالي', en: 'Total' }, open: { ar: 'مفتوحة', en: 'Open' },
+  in_progress: { ar: 'قيد المعالجة', en: 'In Progress' }, waiting: { ar: 'بانتظار الرد (Waiting)', en: 'Waiting' },
+  closed: { ar: 'مغلقة', en: 'Closed' }, all: { ar: 'الكل', en: 'All' },
+  low: { ar: 'منخفضة', en: 'Low' }, medium: { ar: 'متوسطة', en: 'Medium' }, high: { ar: 'عالية', en: 'High' },
+  unassigned: { ar: 'غير معيّن', en: 'Unassigned' }, empty: { ar: 'لا توجد نتائج', en: 'No results' },
+  install: { ar: 'تثبيت', en: 'Install' },
+  footer: { ar: 'هذه الشاشة للعرض فقط ولا تتضمن أي إجراءات إدارية أو بيانات اتصال المعلمين.',
+            en: 'This screen is read-only — no admin actions and no teacher contact details are shown here.' },
 };
-function t(s) { return AR ? s : (I18N_EN[s] || s); }
+function s(key) { return STR[key][AR ? 'ar' : 'en']; }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-function showTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  document.getElementById('tabBtn' + name[0].toUpperCase() + name.slice(1)).classList.add('active');
-  if (name === 'reports') loadStats();
+function toggleLang() {
+  AR = !AR;
+  document.documentElement.lang = AR ? 'ar' : 'en';
+  document.documentElement.dir = AR ? 'rtl' : 'ltr';
+  const u = new URL(location.href); u.searchParams.set('lang', AR ? 'ar' : 'en'); history.replaceState(null, '', u);
+  renderAll();
 }
 
-function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function statusLabel(s) { return t({open:'مفتوحة',in_progress:'قيد المعالجة',waiting:'بانتظار الرد',closed:'مغلقة'}[s] || s); }
-function priorityLabel(p) { return t({low:'منخفضة',medium:'متوسطة',high:'عالية'}[p] || p); }
-
-let TICKETS = [];
-async function loadTickets() {
-  const status = document.getElementById('filterStatus').value;
-  const r = await fetch('/api/monitoring/tickets' + (status ? `?status=${status}` : ''));
-  TICKETS = await r.json();
-  renderTickets();
+function renderClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleString(AR ? 'ar' : 'en-GB', { hour12: false });
 }
-function renderTickets() {
-  const q = (document.getElementById('searchBox').value || '').toLowerCase();
-  let rows = TICKETS;
-  if (q) rows = rows.filter(r => (String(r.serial) + r.subject + r.teacherName).toLowerCase().includes(q));
-  document.getElementById('ticketsBody').innerHTML = rows.map(tk => `
-    <tr class="clickable" onclick="openDetail(${tk.serial})">
-      <td data-label="${t('الرقم')}"><strong style="color:var(--primary)">#${tk.serial}</strong></td>
-      <td data-label="${t('المعلم')}">${esc(tk.teacherName)}</td>
-      <td data-label="${t('التصنيف')}">${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
-      <td data-label="${t('الموضوع')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tk.subject)}</td>
-      <td data-label="${t('الأولوية')}"><span class="priority-${tk.priority}">${priorityLabel(tk.priority)}</span></td>
-      <td data-label="${t('الموظف المسؤول')}">${esc(tk.assigneeName || t('غير معينة'))}</td>
-      <td data-label="${t('الحالة')}"><span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span></td>
-      <td data-label="${t('التاريخ')}">${(tk.createdAt || '').split('T')[0] || ''}</td>
-    </tr>`).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">${t('لا توجد نتائج')}</td></tr>`;
+setInterval(renderClock, 1000); renderClock();
+
+async function loadAll() {
+  try {
+    const [stats, tickets] = await Promise.all([
+      fetch('/api/monitoring/stats').then(r => r.json()),
+      fetch('/api/monitoring/tickets' + (statusFilter !== 'all' ? '?status=' + statusFilter : '')).then(r => r.json()),
+    ]);
+    STATS = stats; TICKETS = tickets;
+    renderAll();
+  } catch (e) { console.error(e); }
 }
 
-// Builds the detail modal straight from the row data already fetched
-// into TICKETS — no separate per-ticket endpoint needed.
-function openDetail(serial) {
-  const tk = TICKETS.find(x => x.serial === serial);
-  if (!tk) return;
-  document.getElementById('detailModalBody').innerHTML = `
-    <div class="modal-title">
-      <span>#${tk.serial} — ${esc(tk.subject)}</span>
-      <button class="modal-close" onclick="closeDetail()" title="${t('إغلاق النافذة')}"><i class="fas fa-times"></i></button>
-    </div>
-    <span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span>
-    <div class="detail-grid">
-      <div><div class="k">${t('المعلم')}</div>${esc(tk.teacherName)}</div>
-      <div><div class="k">${t('التصنيف')}</div>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</div>
-      <div><div class="k">${t('الأولوية')}</div><span class="priority-${tk.priority}">${priorityLabel(tk.priority)}</span></div>
-      <div><div class="k">${t('الموظف المسؤول')}</div>${esc(tk.assigneeName || t('غير معينة'))}</div>
-    </div>
-  `;
-  document.getElementById('detailModal').classList.add('open');
-}
-function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+function renderAll() {
+  document.getElementById('pageTitle').textContent = s('title');
+  document.getElementById('pageSub').textContent = s('sub');
+  document.getElementById('langBtn').textContent = AR ? 'EN' : 'عربي';
+  document.getElementById('refreshBtn').innerHTML = `<i class="fas fa-rotate"></i> ${s('refresh')}`;
+  document.getElementById('installAppBtn').innerHTML = `<i class="fas fa-download"></i> ${s('install')}`;
+  document.getElementById('reportsTitle').textContent = s('reports');
+  document.getElementById('byCategoryLbl').textContent = s('byCategory');
+  document.getElementById('byPriorityLbl').textContent = s('byPriority');
+  document.getElementById('ticketsTitle').textContent = s('tickets');
+  document.getElementById('footerNote').textContent = s('footer');
+  document.getElementById('thSerial').textContent = s('serial');
+  document.getElementById('thCategory').textContent = s('category');
+  document.getElementById('thSubject').textContent = s('subject');
+  document.getElementById('thPriority').textContent = s('priority');
+  document.getElementById('thAssignee').textContent = s('assignee');
+  document.getElementById('thStatus').textContent = s('status');
+  document.getElementById('thDate').textContent = s('date');
 
-async function loadStats() {
-  const s = await (await fetch('/api/monitoring/stats')).json();
-  document.getElementById('statsGrid').innerHTML = `
-    <div class="stat"><b>${s.total}</b><span>${t('الإجمالي')}</span></div>
-    <div class="stat"><b>${s.byStatus.open}</b><span>${t('مفتوحة')}</span></div>
-    <div class="stat"><b>${s.byStatus.in_progress}</b><span>${t('قيد المعالجة')}</span></div>
-    <div class="stat"><b>${s.byStatus.waiting}</b><span>${t('بانتظار الرد')}</span></div>
-    <div class="stat"><b>${s.byStatus.closed}</b><span>${t('مغلقة')}</span></div>
-    <div class="stat"><b>${s.avgCloseHours != null ? s.avgCloseHours : t('—')}</b><span>${t('متوسط زمن الإغلاق (ساعة)')}</span></div>
-  `;
-  document.getElementById('byCategoryTitle').textContent = t('حسب التصنيف');
-  document.getElementById('byCategoryBody').innerHTML = Object.entries(s.byCategory)
-    .map(([name, count]) => `<tr><td>${esc(name || '—')}</td><td style="text-align:end;font-weight:700">${count}</td></tr>`).join('');
+  if (STATS) {
+    const cards = [
+      ['total', STATS.total, '', 'all'], ['open', STATS.byStatus.open, 'red', 'open'],
+      ['in_progress', STATS.byStatus.in_progress, 'blue', 'in_progress'], ['waiting', STATS.byStatus.waiting, 'orange', 'waiting'],
+      ['closed', STATS.byStatus.closed, 'green', 'closed'],
+    ];
+    // Cards double as status filters — click/tap or Enter/Space toggles
+    // the same filter the buttons below the tickets table use, so this
+    // top summary row isn't just a static readout.
+    document.getElementById('statsGrid').innerHTML = cards.map(([key, val, cls, filterVal]) => `
+      <div class="stat-card ${cls} ${statusFilter === filterVal ? 'is-active' : ''}" role="button" tabindex="0"
+           onclick="setStatusFilter('${filterVal}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStatusFilter('${filterVal}')}"
+           title="${s(key)}">
+        <div class="stat-val">${val ?? 0}</div><div class="stat-label">${s(key)}</div>
+      </div>
+    `).join('');
+
+    const maxCat = Math.max(1, ...Object.values(STATS.byCategory || {}));
+    document.getElementById('byCategoryChart').innerHTML = Object.entries(STATS.byCategory || {}).map(([name, val]) => `
+      <div class="bar-row"><span class="lbl" title="${esc(name)}">${esc(name)}</span>
+      <span class="track"><span class="fill" style="width:${(val / maxCat * 100).toFixed(0)}%"></span></span>
+      <span class="val">${val}</span></div>
+    `).join('') || `<div class="empty">${s('empty')}</div>`;
+
+    const maxPri = Math.max(1, ...Object.values(STATS.byPriority || {}));
+    document.getElementById('byPriorityChart').innerHTML = ['low', 'medium', 'high'].map(p => `
+      <div class="bar-row"><span class="lbl">${s(p)}</span>
+      <span class="track"><span class="fill" style="width:${((STATS.byPriority[p]||0) / maxPri * 100).toFixed(0)}%"></span></span>
+      <span class="val">${STATS.byPriority[p] || 0}</span></div>
+    `).join('');
+  }
+
+  const filters = ['all', 'open', 'in_progress', 'waiting', 'closed'];
+  document.getElementById('statusFilters').innerHTML = filters.map(f => `
+    <button class="${statusFilter === f ? 'active' : ''}" onclick="setStatusFilter('${f}')">${s(f)}</button>
+  `).join('');
+
+  document.getElementById('ticketsBody').innerHTML = TICKETS.map(tk => {
+    const created = (tk.createdAt || '').replace('T', ' ').slice(0, 16);
+    return `<tr>
+      <td><strong style="color:var(--primary)">#${tk.serial}</strong></td>
+      <td>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(tk.subject)}">${esc(tk.subject)}</td>
+      <td><span class="priority-${tk.priority}">${s(tk.priority)}</span></td>
+      <td>${esc(tk.assigneeName || s('unassigned'))}</td>
+      <td><span class="badge badge-${tk.status}">${s(tk.status)}</span></td>
+      <td>${created}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="empty">${s('empty')}</td></tr>`;
 }
 
-function init() {
-  document.getElementById('lblTicketsTab').textContent = t('التذاكر');
-  document.getElementById('lblReportsTab').textContent = t('التقارير');
-  document.getElementById('searchBox').placeholder = t('بحث بالرقم أو الموضوع أو اسم المعلم...');
-  document.getElementById('filterStatus').innerHTML =
-    `<option value="">${t('كل الحالات')}</option><option value="open">${t('مفتوحة')}</option>` +
-    `<option value="in_progress">${t('قيد المعالجة')}</option><option value="waiting">${t('بانتظار الرد')}</option>` +
-    `<option value="closed">${t('مغلقة')}</option>`;
-  loadTickets();
-  setInterval(loadTickets, 60000);
+function setStatusFilter(f) { statusFilter = f; loadAll(); }
+
+document.documentElement.lang = AR ? 'ar' : 'en';
+document.documentElement.dir = AR ? 'rtl' : 'ltr';
+loadAll();
+setInterval(loadAll, 60000); // auto-refresh — this page is meant to stay open unattended (e.g. an office screen)
+
+// ── PWA: installable + offline-friendly, same as the rest of the site ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
 }
-init();
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('installAppBtn');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (!isStandalone) {
+  if (isIOS) {
+    if (installBtn) installBtn.style.display = 'flex';
+  } else {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      deferredInstallPrompt = e;
+      if (installBtn) installBtn.style.display = 'flex';
+    });
+  }
+}
+function handleInstallClick(e) {
+  e.preventDefault();
+  if (isIOS) {
+    alert(AR
+      ? 'لإضافة الشاشة للشاشة الرئيسية:\n١) اضغط زر المشاركة ⬆️ بأسفل الشاشة\n٢) اختر "Add to Home Screen"'
+      : 'To add this to your Home Screen:\n1) Tap the Share button ⬆️\n2) Choose "Add to Home Screen"');
+    return;
+  }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => {
+      deferredInstallPrompt = null;
+      if (installBtn) installBtn.style.display = 'none';
+    });
+  }
+}
+window.addEventListener('appinstalled', () => { if (installBtn) installBtn.style.display = 'none'; });
 </script>
 </body>
 </html>
