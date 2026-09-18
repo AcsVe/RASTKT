@@ -506,7 +506,7 @@ const I18N_EN = {
     'Administrator: all of the above + manage staff accounts (add/edit/deactivate/delete).',
   'حفظ التعديلات': 'Save Changes',
   'التذكير التلقائي بالتذاكر غير المعالجة': 'Auto Reminder for Unprocessed Tickets',
-  'عند التفعيل، إذا مرّت المدة المحددة على إنشاء التذكرة دون أي تعليق أو إجراء، يصل إشعار بالبريد للموظف المعيّن ولمدراء النظام. حالة "بانتظار الرد" مستثناة دائماً.':
+  'عند التفعيل، إذا مرّت المدة المحددة على إنشاء التذكرة دون أي تعليق أو إجراء، يصل إشعار بالبريد للموظف المعيّن ولمدراء النظام. حالة "معلقة" مستثناة دائماً.':
     'When enabled, if the configured time passes since a ticket was created with no comment or action, the assignee and system admins are emailed. "Waiting" tickets are always excluded.',
   'تفعيل التذكير التلقائي': 'Enable auto reminder', 'المدة بالساعات': 'Threshold (hours)',
   'فحص الآن': 'Check Now',
@@ -545,7 +545,7 @@ const I18N_EN = {
   'تمت الإضافة': 'Added', 'تعذّر': 'Skipped', 'المتصفح لا يدعم الإشعارات': 'Browser does not support notifications',
   'الأولوية': 'Priority', 'الوقت': 'Time', 'منخفضة': 'Low', 'متوسطة': 'Medium', 'عالية': 'High',
   'كل الأولويات': 'All Priorities', 'أولوية عالية': 'High Priority',
-  'بانتظار الرد': 'Waiting', 'استئناف': 'Resume', 'حفظ': 'Save',
+  'معلقة': 'Waiting', 'استئناف': 'Resume', 'حفظ': 'Save',
   'الإعدادات': 'Settings', 'قبول التذاكر من خارج قائمة المعلمين': 'Accept Tickets Outside the Teacher List',
   'عند التفعيل، يمكن لأي شخص خارج قائمة المعلمين تقديم تذكرة بإدخال اسمه وبريده الإلكتروني.':
     'When enabled, anyone outside the teacher list can submit a ticket by entering their name and email.',
@@ -703,7 +703,7 @@ function paintStaticLabels() {
   document.getElementById('extSubToggleLbl').textContent = t('قبول تذاكر من خارج نطاق المعلمين (On/Off)');
   document.getElementById('reminderCardTitle').textContent = t('التذكير التلقائي بالتذاكر غير المعالجة');
   document.getElementById('reminderHint').textContent = AR
-    ? 'يطبَّق هذا التذكير فقط على التذاكر التي تُفعِّلها بنفسك من قائمة التذاكر (تحديد متعدد ثم "تفعيل التذكير") — وليس على كل التذاكر تلقائياً. عند التفعيل، إذا مرّت المدة المحددة أدناه على إنشاء التذكرة دون أي تعليق أو إجراء، يصل إشعار بالبريد للموظف المعيّن ولمدراء النظام. حالة "بانتظار الرد" مستثناة دائماً.'
+    ? 'يطبَّق هذا التذكير فقط على التذاكر التي تُفعِّلها بنفسك من قائمة التذاكر (تحديد متعدد ثم "تفعيل التذكير") — وليس على كل التذاكر تلقائياً. عند التفعيل، إذا مرّت المدة المحددة أدناه على إنشاء التذكرة دون أي تعليق أو إجراء، يصل إشعار بالبريد للموظف المعيّن ولمدراء النظام. حالة "معلقة" مستثناة دائماً.'
     : 'This reminder only applies to tickets you specifically enable it for from the ticket list (multi-select, then "Enable Reminder") — not to every ticket automatically. When due, if the threshold below passes since a ticket was created with no comment or action, the assignee and system admins are emailed. "Waiting" tickets are always excluded.';
   document.getElementById('reminderEnabledLbl').textContent = AR ? 'تفعيل الميزة (المفتاح العام)' : 'Enable feature (master switch)';
   document.getElementById('reminderHoursLbl').textContent = t('المدة بالساعات');
@@ -866,7 +866,7 @@ function refreshAll() { loadTickets(); showToast(t('تم التحديث')); }
 let TICKETS = [], CATEGORIES = [], STAFF_LIST = [];
 let ticketSort = { key: 'createdAt', dir: 'desc' };
 
-function statusLabel(s) { return AR ? ({open:'مفتوحة',in_progress:'قيد المعالجة',waiting:'بانتظار الرد',closed:'مغلقة'}[s]) : ({open:'Open',in_progress:'In Progress',waiting:'Waiting',closed:'Closed'}[s]); }
+function statusLabel(s) { return AR ? ({open:'مفتوحة',in_progress:'قيد المعالجة',waiting:'معلقة',closed:'مغلقة'}[s]) : ({open:'Open',in_progress:'In Progress',waiting:'Waiting',closed:'Closed'}[s]); }
 function priorityLabel(p) { return AR ? ({low:'منخفضة',medium:'متوسطة',high:'عالية'}[p]) : ({low:'Low',medium:'Medium',high:'High'}[p]); }
 
 async function loadTickets() {
@@ -899,7 +899,7 @@ function renderStatCards() {
   };
   const defs = [
     ['total', 'الإجمالي', 'clear', ''], ['open', 'مفتوحة', 'open', 'accent'],
-    ['in_progress', 'قيد المعالجة', 'in_progress', ''], ['waiting', 'بانتظار الرد', 'waiting', 'orange'],
+    ['in_progress', 'قيد المعالجة', 'in_progress', ''], ['waiting', 'معلقة', 'waiting', 'orange'],
     ['closed', 'مغلقة', 'closed', 'green'],
     ['high', 'أولوية عالية', 'high_priority', 'red'], ['unassigned', 'غير معينة', 'unassigned', 'orange'],
   ];
@@ -964,7 +964,7 @@ function renderTickets() {
     let actions = `<button class="btn btn-blue btn-sm" onclick="openDetail(${tk.id})" title="${t('عرض')}"><i class="fas fa-eye"></i></button>`;
     if (canAssign) actions += `<button class="btn btn-outline btn-sm" onclick="openDetail(${tk.id},'assign')" title="${t('تعيين')}"><i class="fas fa-user-tag"></i></button>`;
     if (canManage && (tk.status === 'open' || tk.status === 'in_progress')) {
-      actions += `<button class="btn btn-outline btn-sm" onclick="doWait(${tk.id})" title="${t('بانتظار الرد')}"><i class="fas fa-hourglass-half"></i></button>`;
+      actions += `<button class="btn btn-outline btn-sm" onclick="doWait(${tk.id})" title="${t('معلقة')}"><i class="fas fa-hourglass-half"></i></button>`;
     }
     if (canManage && tk.status === 'waiting') {
       actions += `<button class="btn btn-blue btn-sm" onclick="doResume(${tk.id})" title="${t('استئناف')}"><i class="fas fa-play"></i></button>`;
@@ -1110,7 +1110,7 @@ async function openDetail(id, focus) {
       <button class="btn btn-primary" style="margin-top:8px" onclick="doComment(${tk.id})"><i class="fas fa-paper-plane"></i> ${t('إرسال')}</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-      ${(tk.status === 'open' || tk.status === 'in_progress') ? `<button class="btn btn-outline" onclick="doWait(${tk.id});closeDetail()"><i class="fas fa-hourglass-half"></i> ${t('بانتظار الرد')}</button>` : ''}
+      ${(tk.status === 'open' || tk.status === 'in_progress') ? `<button class="btn btn-outline" onclick="doWait(${tk.id});closeDetail()"><i class="fas fa-hourglass-half"></i> ${t('معلقة')}</button>` : ''}
       ${tk.status === 'waiting' ? `<button class="btn btn-blue" onclick="doResume(${tk.id});closeDetail()"><i class="fas fa-play"></i> ${t('استئناف')}</button>` : ''}
       ${tk.status !== 'closed' ? `<button class="btn btn-green" onclick="promptClose(${tk.id})" title="${t('إغلاق التذكرة')}"><i class="fas fa-check-circle"></i> ${t('إغلاق التذكرة')}</button>` : ''}
       ${tk.status === 'closed' && !tk.mergedIntoId ? `<button class="btn btn-orange" onclick="doReopen(${tk.id})"><i class="fas fa-undo"></i> ${t('إعادة فتح')}</button>` : ''}
