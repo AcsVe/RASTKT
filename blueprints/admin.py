@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
+from collections import defaultdict
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import (Blueprint, render_template, request, jsonify,
@@ -959,6 +960,109 @@ def api_set_ticker_settings():
     if 'rssUrl' in data:
         cfg['rssUrl'] = sanitize_text(data['rssUrl'])
     return jsonify(set_ticker_config(cfg))
+
+
+# ── Reports (evaluation): staff ← criteria, filterable, printable ─────────
+def _build_reports_data(date_from, date_to, category_id, status, priority):
+    q = Ticket.query.filter(Ticket.merged_into_id.is_(None))
+    if date_from:
+        try:
+            q = q.filter(Ticket.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            q = q.filter(Ticket.created_at < datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
+        except ValueError:
+            pass
+    if category_id:
+        q = q.filter_by(category_id=category_id)
+    if status in ('open', 'in_progress', 'waiting', 'closed'):
+        q = q.filter_by(status=status)
+    if priority in PRIORITIES:
+        q = q.filter_by(priority=priority)
+
+    tickets = q.all()
+
+    def bucket(ts):
+        by_status = {'open': 0, 'in_progress': 0, 'waiting': 0, 'closed': 0}
+        by_priority = {'low': 0, 'medium': 0, 'high': 0}
+        by_category, by_month = {}, {}
+        close_hours = []
+        for t in ts:
+            by_status[t.status] = by_status.get(t.status, 0) + 1
+            by_priority[t.priority or 'medium'] = by_priority.get(t.priority or 'medium', 0) + 1
+            cat = t.category_name or '—'
+            by_category[cat] = by_category.get(cat, 0) + 1
+            month_key = t.created_at.strftime('%Y-%m') if t.created_at else '—'
+            by_month[month_key] = by_month.get(month_key, 0) + 1
+            if t.status == 'closed' and t.closed_at and t.created_at:
+                close_hours.append((t.closed_at - t.created_at).total_seconds() / 3600)
+        return {
+            'total': len(ts), 'byStatus': by_status, 'byPriority': by_priority,
+            'byCategory': dict(sorted(by_category.items(), key=lambda kv: -kv[1])),
+            'byMonth': dict(sorted(by_month.items())),
+            'avgCloseHours': round(sum(close_hours) / len(close_hours), 1) if close_hours else None,
+        }
+
+    per_staff = defaultdict(list)
+    unassigned_tickets = []
+    for t in tickets:
+        (per_staff[t.assignee_id] if t.assignee_id else unassigned_tickets).append(t)
+
+    staff_rows = []
+    for s in StaffUser.query.order_by(StaffUser.full_name).all():
+        row = bucket(per_staff.get(s.id, []))
+        row.update({'staffId': s.id, 'fullName': s.full_name, 'role': s.role, 'active': s.active})
+        staff_rows.append(row)
+    staff_rows.sort(key=lambda r: -r['total'])
+
+    return {
+        'overall': bucket(tickets),
+        'staff': staff_rows,
+        'unassigned': bucket(unassigned_tickets),
+        'filters': {'from': date_from or '', 'to': date_to or '', 'categoryId': category_id,
+                    'status': status or 'all', 'priority': priority or 'all'},
+    }
+
+
+@admin_bp.route('/api/reports')
+@login_required
+def api_reports():
+    staff = current_staff()
+    if not staff.is_system_admin_or_above():
+        return jsonify({'error': 'forbidden'}), 403
+    data = _build_reports_data(
+        request.args.get('from'), request.args.get('to'),
+        request.args.get('category_id', type=int),
+        request.args.get('status'), request.args.get('priority'),
+    )
+    return jsonify(data)
+
+
+@admin_bp.route('/reports/print')
+@login_required
+def print_reports():
+    staff = current_staff()
+    if not staff.is_system_admin_or_above():
+        return redirect(url_for('admin.dashboard'))
+    lang = session.get('admin_lang', 'ar')
+    data = _build_reports_data(
+        request.args.get('from'), request.args.get('to'),
+        request.args.get('category_id', type=int),
+        request.args.get('status'), request.args.get('priority'),
+    )
+    staff_id = request.args.get('staff_id', type=int)
+    if staff_id:
+        data['staff'] = [r for r in data['staff'] if r['staffId'] == staff_id]
+    categories = Category.query.order_by(Category.sort_order).all()
+    cat_name = None
+    if data['filters']['categoryId']:
+        cat = Category.query.get(data['filters']['categoryId'])
+        cat_name = (cat.name_ar if lang == 'ar' else (cat.name_en or cat.name_ar)) if cat else None
+    return render_template('admin/print_reports.html', lang=lang, data=data, cat_name=cat_name,
+                            generated_at=datetime.utcnow(), categories=categories,
+                            status_ar=STATUS_LABELS_AR, status_en=STATUS_LABELS_EN)
 
 
 # ── Print view ───────────────────────────────────────────────────────────
