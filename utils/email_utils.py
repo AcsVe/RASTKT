@@ -240,6 +240,33 @@ def send_ticket_confirmation(t):
                  _base_html(content_ar, content_en))
 
 
+def send_ticket_reassigned_away(t, new_assignee_name=None):
+    """Sent to whoever the ticket was PREVIOUSLY assigned to, the moment
+    it's handed to someone else (or unassigned) — so they don't keep
+    tracking a ticket that's no longer theirs and only find out by
+    stumbling onto it in the dashboard. `new_assignee_name` is None for
+    a plain unassign (no new assignee chosen)."""
+    if new_assignee_name:
+        line_ar = f'تم نقل التذكرة إلى <strong>{new_assignee_name}</strong>، ولم تعد ضمن مهامك.'
+        line_en = f'It has been reassigned to <strong>{new_assignee_name}</strong> and is no longer on your list.'
+    else:
+        line_ar = 'أصبحت التذكرة غير معيّنة لأي موظف حالياً.'
+        line_en = 'It is currently unassigned.'
+    content_ar = f"""
+    <h2 style="color:#2E4E7A;margin-top:0">↪️ لم تعد هذه التذكرة معيّنة لك</h2>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_ar(t)}</table>
+    <p style="color:#555">{line_ar}</p>
+    """
+    content_en = f"""
+    <h2 style="color:#2E4E7A;margin-top:0">↪️ This Ticket Is No Longer Assigned to You</h2>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_en(t)}</table>
+    <p style="color:#555">{line_en}</p>
+    """
+    return _send(t.get('prevAssigneeEmail', ''), t.get('prevAssigneeName', ''),
+                 f"[دعم فني/IT Support] نُقلت عنك التذكرة #{t['serial']}",
+                 _base_html(content_ar, content_en, color='#2E4E7A'))
+
+
 def send_ticket_assigned(t):
     """Sent to the staff member a ticket was (re)assigned to."""
     content_ar = f"""
