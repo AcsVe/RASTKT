@@ -12,7 +12,8 @@ from models import (db, Ticket, TicketComment, Teacher, Category, CategoryItem,
 from utils.helpers import is_valid_email, sanitize_text, db_ilike
 from utils.email_utils import (send_ticket_assigned, send_ticket_closed, send_ticket_reopened,
                                 send_ticket_merged, send_new_comment_notification, send_priority_changed,
-                                send_internal_note_notification, send_new_staff_account_email)
+                                send_internal_note_notification, send_new_staff_account_email,
+                                send_ticket_reassigned_away)
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -189,10 +190,21 @@ def api_assign(ticket_id):
     data = request.get_json(silent=True) or {}
     assignee_id = data.get('assigneeId')
 
+    # Captured BEFORE any reassignment below, so we can notify whoever
+    # is about to lose the ticket — otherwise they'd only find out by
+    # stumbling onto it in the dashboard later.
+    previous_assignee = ticket.assignee
+
     if assignee_id is None:
         ticket.assignee_id = None
         ticket.assigned_at = None
         db.session.commit()
+        try:
+            if previous_assignee and previous_assignee.email:
+                send_ticket_reassigned_away(_ticket_email_ctx(
+                    ticket, prevAssigneeEmail=previous_assignee.email, prevAssigneeName=previous_assignee.full_name))
+        except Exception as e:
+            print(f"[email] unassign notify failed: {e}", flush=True)
         return jsonify(ticket.to_dict())
 
     assignee = StaffUser.query.filter_by(id=assignee_id, active=True).first()
@@ -221,6 +233,21 @@ def api_assign(ticket_id):
                             f"#{ticket.serial_number} — {ticket.subject}", '/admin/')
     except Exception as e:
         print(f"[email] assign notify failed: {e}", flush=True)
+
+    # Notify whoever HAD it, only when it's actually moving to someone
+    # else (skip a no-op "reassign" back to the same person).
+    if previous_assignee and previous_assignee.id != assignee.id:
+        try:
+            if previous_assignee.email:
+                send_ticket_reassigned_away(_ticket_email_ctx(
+                    ticket, prevAssigneeEmail=previous_assignee.email, prevAssigneeName=previous_assignee.full_name),
+                    new_assignee_name=assignee.full_name)
+            from utils.push_utils import send_push_to_staff
+            send_push_to_staff(current_app._get_current_object(), previous_assignee.id,
+                                'نُقلت عنك تذكرة / Ticket reassigned away',
+                                f"#{ticket.serial_number} — {ticket.subject}", '/admin/')
+        except Exception as e:
+            print(f"[email] reassign-away notify failed: {e}", flush=True)
 
     return jsonify(ticket.to_dict())
 
@@ -782,7 +809,13 @@ def api_delete_staff(staff_id):
     staff = StaffUser.query.get_or_404(staff_id)
     if staff.role == ROLE_ADMINISTRATOR and StaffUser.query.filter_by(role=ROLE_ADMINISTRATOR, active=True).count() <= 1:
         return jsonify({'error': 'at least one active Administrator must remain'}), 400
+    # Every FK that points at staff_users.id has to be cleared/removed
+    # first, or the delete below fails with a 500 (IntegrityError) the
+    # moment this staff member has ever been assigned a ticket, posted a
+    # comment, or registered a push subscription.
     Ticket.query.filter_by(assignee_id=staff.id).update({'assignee_id': None})
+    TicketComment.query.filter_by(staff_id=staff.id).update({'staff_id': None})
+    PushSubscription.query.filter_by(staff_id=staff.id).delete()
     db.session.delete(staff)
     db.session.commit()
     return jsonify({'success': True})
