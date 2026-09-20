@@ -12,7 +12,7 @@ from models import (db, Ticket, TicketComment, Teacher, Category, CategoryItem,
 from utils.helpers import is_valid_email, sanitize_text, db_ilike
 from utils.email_utils import (send_ticket_assigned, send_ticket_closed, send_ticket_reopened,
                                 send_ticket_merged, send_new_comment_notification, send_priority_changed,
-                                send_internal_note_notification)
+                                send_internal_note_notification, send_new_staff_account_email)
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -737,11 +737,19 @@ def api_add_staff():
         return jsonify({'error': 'username, fullName, password and a valid role are required'}), 400
     if StaffUser.query.filter(db_ilike(StaffUser.username, username)).first():
         return jsonify({'error': 'username already exists'}), 400
+    email = sanitize_text(data.get('email'))
     staff = StaffUser(username=username, full_name=full_name,
                        password_hash=generate_password_hash(password),
-                       email=sanitize_text(data.get('email')), role=role, active=True)
+                       email=email, role=role, active=True)
     db.session.add(staff)
     db.session.commit()
+
+    if email:
+        try:
+            send_new_staff_account_email(staff.to_dict(), password)
+        except Exception as e:
+            print(f"[email] new staff account email failed: {e}", flush=True)
+
     return jsonify(staff.to_dict())
 
 
