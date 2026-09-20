@@ -406,6 +406,40 @@ def send_priority_changed(t):
                  _base_html(content_ar, content_en))
 
 
+def send_new_staff_account_email(staff_dict, plain_password):
+    """Sent once, right when an Administrator creates a new staff
+    account — carries the username, initial password, role, and a
+    direct login link, so the new staff member can get in immediately
+    without anyone reading credentials aloud or typing them over chat.
+    `staff_dict` needs: fullName, username, email, roleLabelAr, roleLabelEn."""
+    content_ar = f"""
+    <h2 style="color:#247680;margin-top:0">🔑 تم إنشاء حسابك بنظام الدعم الفني</h2>
+    <p>مرحباً <strong>{staff_dict['fullName']}</strong>، تم إنشاء حساب لك بنظام طلبات الدعم الفني بصلاحية <strong>{staff_dict['roleLabelAr']}</strong>.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr><td style="padding:6px 8px;background:#f0f7f8;font-weight:600;width:40%">اسم المستخدم</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee" dir="ltr"><strong style="color:#247680">{staff_dict['username']}</strong></td></tr>
+      <tr><td style="padding:6px 8px;background:#f0f7f8;font-weight:600">كلمة المرور المبدئية</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee" dir="ltr"><strong style="color:#247680">{plain_password}</strong></td></tr>
+    </table>
+    <p style="color:#c0392b;font-weight:600">لأسباب أمنية، يُرجى تغيير كلمة المرور بعد أول تسجيل دخول.</p>
+    {_dashboard_link_html()}
+    """
+    content_en = f"""
+    <h2 style="color:#247680;margin-top:0">🔑 Your IT Support Account Was Created</h2>
+    <p>Hello <strong>{staff_dict['fullName']}</strong>, an account was created for you on the IT support ticketing system with <strong>{staff_dict['roleLabelEn']}</strong> access.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr><td style="padding:6px 8px;background:#f0f7f8;font-weight:600;width:40%">Username</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee" dir="ltr"><strong style="color:#247680">{staff_dict['username']}</strong></td></tr>
+      <tr><td style="padding:6px 8px;background:#f0f7f8;font-weight:600">Initial Password</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #eee" dir="ltr"><strong style="color:#247680">{plain_password}</strong></td></tr>
+    </table>
+    <p style="color:#c0392b;font-weight:600">For security, please change your password after your first login.</p>
+    """
+    return _send(staff_dict.get('email', ''), staff_dict.get('fullName', ''),
+                 "[دعم فني/IT Support] تم إنشاء حسابك بالنظام / Your account was created",
+                 _base_html(content_ar, content_en))
+
+
 def send_staff_new_ticket_notification(t, emails):
     """Broadcast to staff (e.g. all System Admins) when a new ticket comes
     in, so someone assigns it promptly."""
