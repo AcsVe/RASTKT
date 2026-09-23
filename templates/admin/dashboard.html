@@ -614,8 +614,8 @@ const I18N_EN = {
   'متوسط ساعات الإغلاق': 'Avg. Close Hours', 'لا يوجد موظفون': 'No staff accounts',
   'تذاكر غير معيّنة': 'Unassigned Tickets', 'طباعة تقرير هذا الموظف': "Print this staff member's report",
   'صلاحيات حساسة إضافية (بمعزل عن الدور)': 'Extra sensitive permissions (independent of role)',
-  'يقدر يغيّر أولوية التذاكر': 'Can change ticket priority',
-  'يقدر يدير إعدادات التذكير التلقائي بالتذاكر غير المعالجة': 'Can manage Auto Reminder for Unprocessed Tickets settings',
+  'تغيير أولوية التذاكر': 'Can change ticket priority',
+  'تفعيل إعدادات التذكير التلقائي بالتذاكر غير المعالجة': 'Can manage Auto Reminder for Unprocessed Tickets settings',
   'ليست لديك صلاحية لإدارة هذه الميزة — اطلب من المدير العام تفعيلها لحسابك.': "You don't have permission to manage this feature — ask an Administrator to enable it for your account.",
 };
 
@@ -751,7 +751,7 @@ function paintStaticLabels() {
   document.getElementById('reminderHint').textContent = AR
     ? 'يطبَّق هذا التذكير فقط على التذاكر التي تُفعِّلها بنفسك من قائمة التذاكر (تحديد متعدد ثم "تفعيل التذكير") — وليس على كل التذاكر تلقائياً. عند التفعيل، إذا مرّت المدة المحددة أدناه على إنشاء التذكرة دون أي تعليق أو إجراء، يصل إشعار بالبريد للموظف المعيّن ولمدراء النظام. حالة "معلقة" مستثناة دائماً.'
     : 'This reminder only applies to tickets you specifically enable it for from the ticket list (multi-select, then "Enable Reminder") — not to every ticket automatically. When due, if the threshold below passes since a ticket was created with no comment or action, the assignee and system admins are emailed. "Waiting" tickets are always excluded.';
-  document.getElementById('reminderEnabledLbl').textContent = AR ? 'تفعيل الميزة (المفتاح العام)' : 'Enable feature (master switch)';
+  document.getElementById('reminderEnabledLbl').textContent = AR ? 'تفعيل الميزة (المفتاح العام)' : 'Enable Feature (Master Switch)';
   document.getElementById('reminderHoursLbl').textContent = t('المدة بالساعات');
   document.getElementById('reminderSaveLbl').textContent = t('حفظ');
   document.getElementById('reminderCheckNowLbl').textContent = t('فحص الآن');
@@ -1688,11 +1688,11 @@ function openStaffEdit(id) {
       <div style="font-weight:800;font-size:.82rem;margin-bottom:8px">${t('صلاحيات حساسة إضافية (بمعزل عن الدور)')}</div>
       <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:.85rem;margin-bottom:8px">
         <input type="checkbox" id="editStaffCanPriority" ${s.canChangePriority ? 'checked' : ''}>
-        ${t('يقدر يغيّر أولوية التذاكر')}
+        ${t('تغيير أولوية التذاكر')}
       </label>
       <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:.85rem">
         <input type="checkbox" id="editStaffCanReminders" ${s.canManageReminders ? 'checked' : ''}>
-        ${t('يقدر يدير إعدادات التذكير التلقائي بالتذاكر غير المعالجة')}
+        ${t('تفعيل إعدادات التذكير التلقائي بالتذاكر غير المعالجة')}
       </label>
     </div>
     <button class="btn btn-primary" onclick="saveStaffEdit(${s.id})"><i class="fas fa-save"></i> ${t('حفظ التعديلات')}</button>
