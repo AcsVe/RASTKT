@@ -1,0 +1,118 @@
+{% extends "base_public.html" %}
+{% block title %}{{ 'التذكرة #' ~ ticket.serial if lang == 'ar' else 'Ticket #' ~ ticket.serial }}{% endblock %}
+{% block content %}
+{% if submitted %}
+<div class="alert alert-success"><i class="fas fa-check-circle"></i>
+  {{ 'تم استلام طلبك بنجاح! تم إرسال رقم الاستعلام إلى بريدك الإلكتروني.' if lang == 'ar'
+     else 'Your request was received! The tracking code was sent to your email.' }}
+</div>
+{% endif %}
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1 class="page-title">{{ 'التذكرة رقم' if lang == 'ar' else 'Ticket #' }} {{ ticket.serial }}</h1>
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        <span class="tracking-chip" id="trackingChipText" dir="ltr" title="{{ 'رقم الاستعلام' if lang == 'ar' else 'Tracking code' }}">{{ ticket.trackingCode }}</span>
+        <button type="button" class="btn btn-outline" id="copyTrackingBtn" onclick="copyTrackingCode()"
+                style="padding:8px 10px;border-radius:8px"
+                title="{{ 'نسخ رقم الاستعلام' if lang == 'ar' else 'Copy tracking code' }}"
+                aria-label="{{ 'نسخ رقم الاستعلام' if lang == 'ar' else 'Copy tracking code' }}">
+          <i class="fas fa-copy"></i>
+        </button>
+      </span>
+    </div>
+    <span class="badge badge-{{ ticket.status }}">{{ status_ar[ticket.status] if lang == 'ar' else status_en[ticket.status] }}</span>
+  </div>
+
+  {% if ticket.mergedIntoSerial %}
+  <div class="alert" style="background:#eef3f5;color:#C43D1F;border:1px solid var(--border);margin-top:14px">
+    <i class="fas fa-link"></i>
+    {{ 'تم دمج هذه التذكرة مع التذكرة رقم' if lang == 'ar' else 'This ticket was merged into ticket #' }} {{ ticket.mergedIntoSerial }}.
+  </div>
+  {% endif %}
+
+  <div class="ticket-meta">
+    <div><div class="k">{{ 'مقدّم الطلب' if lang == 'ar' else 'Requested by' }}</div><div class="v">{{ ticket.teacherName }}</div></div>
+    <div><div class="k">{{ 'التصنيف' if lang == 'ar' else 'Category' }}</div><div class="v">{{ ticket.category }}{% if ticket.categoryItem %} / {{ ticket.categoryItem }}{% endif %}</div></div>
+    <div><div class="k">{{ 'الموضوع' if lang == 'ar' else 'Subject' }}</div><div class="v">{{ ticket.subject }}</div></div>
+    <div><div class="k">{{ 'الموقع' if lang == 'ar' else 'Location' }}</div><div class="v">{{ ticket.location or '—' }}</div></div>
+    <div><div class="k">{{ 'تاريخ التقديم' if lang == 'ar' else 'Submitted' }}</div><div class="v">{{ ticket.createdAt[:16].replace('T',' ') if ticket.createdAt else '' }}</div></div>
+    <div><div class="k">{{ 'الأولوية' if lang == 'ar' else 'Priority' }}</div><div class="v priority-{{ ticket.priority }}">{{ {'low':'منخفضة','medium':'متوسطة','high':'عالية'}[ticket.priority] if lang == 'ar' else {'low':'Low','medium':'Medium','high':'High'}[ticket.priority] }}</div></div>
+  </div>
+  {% if ticket.description %}
+  <div><div class="ticket-meta-k" style="font-weight:700;font-size:.85rem;color:var(--muted);margin-bottom:4px">{{ 'التفاصيل' if lang == 'ar' else 'Details' }}</div>
+  <div style="white-space:pre-wrap">{{ ticket.description }}</div></div>
+  {% endif %}
+  {% if ticket.attachments %}
+  <div style="margin-top:14px">
+    <div class="k" style="font-weight:700;font-size:.85rem;color:var(--muted);margin-bottom:6px">{{ 'المرفقات' if lang == 'ar' else 'Attachments' }}</div>
+    {% for a in ticket.attachments %}<a href="{{ a }}" target="_blank" class="btn btn-outline" style="margin:2px" title="{{ 'فتح المرفق' if lang=='ar' else 'Open attachment' }}"><i class="fas fa-paperclip"></i> {{ loop.index }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 style="font-size:1.05rem;color:var(--primary-dark);margin-bottom:14px">{{ 'سجل المتابعة' if lang == 'ar' else 'Follow-up Log' }}</h2>
+  {% for c in ticket.comments %}
+    {% if c.authorRole != 'system' %}
+    <div class="comment {{ 'staff' if c.authorRole == 'staff' else '' }}">
+      <div class="meta">{{ c.authorName or (('الدعم الفني' if lang=='ar' else 'IT Support') if c.authorRole=='staff' else ticket.teacherName) }} — {{ c.createdAt[:16].replace('T',' ') }}</div>
+      <div class="body">{{ c.body }}</div>
+    </div>
+    {% endif %}
+  {% else %}
+    <p style="color:var(--muted);font-size:.88rem">{{ 'لا توجد تعليقات بعد' if lang == 'ar' else 'No comments yet' }}</p>
+  {% endfor %}
+
+  <form method="post" action="/ticket/{{ ticket.trackingCode }}/comment?lang={{ lang }}" style="margin-top:16px">
+    <label for="body">{{ 'إضافة تعليق' if lang == 'ar' else 'Add a Comment' }}</label>
+    <textarea id="body" name="body" required
+              placeholder="{{ 'اكتب رسالتك للدعم الفني هنا...' if lang == 'ar' else 'Write your message to IT support here...' }}"
+              aria-label="{{ 'نص التعليق' if lang == 'ar' else 'Comment text' }}"></textarea>
+    <button type="submit" class="btn btn-primary" style="margin-top:10px" title="{{ 'إرسال التعليق' if lang == 'ar' else 'Send comment' }}">
+      <i class="fas fa-paper-plane"></i> {{ 'إرسال' if lang == 'ar' else 'Send' }}
+    </button>
+  </form>
+</div>
+
+<div style="text-align:center;margin-top:6px">
+  <a href="/lookup?lang={{ lang }}" class="btn btn-outline" title="{{ 'الاستعلام عن تذكرة أخرى برقم استعلام مختلف' if lang == 'ar' else 'Look up a different ticket by tracking code' }}">
+    <i class="fas fa-search"></i> {{ 'الاستعلام عن تذكرة أخرى' if lang == 'ar' else 'Look Up Another Ticket' }}
+  </a>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function copyTrackingCode() {
+    const codeEl = document.getElementById('trackingChipText');
+    const btn = document.getElementById('copyTrackingBtn');
+    if (!codeEl || !btn) return;
+    const code = codeEl.textContent.trim();
+    const showCopied = () => {
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i>';
+      btn.disabled = true;
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 1500);
+    };
+    const fallbackCopy = () => {
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+      showCopied();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(showCopied).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  }
+</script>
+{% endblock %}
