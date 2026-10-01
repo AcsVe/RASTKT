@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }} — {{ config.ORG_AR }}</title>
+
+<!-- PWA: Add to Home Screen (Android + iOS + Desktop) — same manifest/service
+     worker as the rest of the site, so this screen can be installed and
+     opened standalone (e.g. pinned as a dedicated office/TV display). -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1B3358">
+<link rel="icon" href="/static/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{ 'المتابعة' if lang == 'ar' else 'Monitoring' }}">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #FF5733; --secondary: #2E4E7A; --secondary-dark: #1B3358;
+  --accent: {{ config.ACCENT_COLOR }};
+  --bg: #f0f4f5; --white: #fff; --text: #1e2a2b; --muted: #6b7c7e; --border: #d4e4e6;
+  --green: #27ae60; --red: #c0392b; --orange: #e67e22; --blue: #2E4E7A;
+}
+* , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--text); height: 100%; overflow: hidden; }
+/* Same fixed-header pattern as the rest of the site (see base_public.html):
+   the ticker and the header live together in ONE fixed block instead of
+   being independently positioned, and the scrollable content below is its
+   own pane offset by the fixed block's real (JS-measured) height — so
+   page content can never physically scroll up behind/through the ticker,
+   which is what caused the earlier overlap. */
+#siteHeaderFixed { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+#siteHeaderFixed #globalTicker { position: static; z-index: auto; }
+.container { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; overflow-y: auto; }
+header {
+  background: linear-gradient(135deg, var(--secondary-dark), var(--secondary));
+  color: #fff; padding: 14px 22px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+header .brand { display: flex; align-items: center; gap: 12px; }
+header .brand img { height: 42px; background: #fff; border-radius: 8px; padding: 4px; }
+header h1 { font-size: 1.15rem; font-weight: 800; }
+header .sub { font-size: .78rem; opacity: .8; }
+header .tools { display: flex; align-items: center; gap: 10px; }
+header button, header a.tool-btn {
+  background: rgba(255,255,255,.15); border: none; color: #fff; padding: 7px 14px;
+  border-radius: 8px; font-weight: 700; font-size: .8rem; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+}
+header button:hover, header a.tool-btn:hover { background: rgba(255,255,255,.28); }
+main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+/* Compact header on phones — the title/subtitle + refresh/EN/clock row
+   were wrapping onto 3 lines, eating a big chunk of a small screen and
+   making the fixed-header height harder to keep in sync (see the
+   clipping fix above). Tightening this is the direct fix for both. */
+@media (max-width: 640px) {
+  header { padding: 8px 12px; gap: 6px; }
+  header h1 { font-size: .95rem; }
+  header .sub { font-size: .68rem; opacity: .75; }
+  header .brand img { height: 30px; }
+  header .tools { gap: 6px; }
+  header button, header a.tool-btn { padding: 5px 10px; font-size: .72rem; }
+  #clock { display: none; } /* redundant with the device's own clock on a small screen; frees a whole line */
+  main { padding: 12px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat-card { padding: 10px; }
+  .stat-val { font-size: 1.35rem; }
+  .stat-label { font-size: .7rem; margin-top: 2px; }
+}
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stat-card {
+  background: var(--white); border-radius: 12px; padding: 16px; text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06); border-top: 4px solid var(--primary);
+  cursor: pointer; transition: transform .12s, box-shadow .12s; -webkit-tap-highlight-color: transparent;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.1); }
+.stat-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stat-card.is-active { box-shadow: 0 0 0 2px var(--primary) inset, 0 6px 16px rgba(0,0,0,.1); }
+.stat-card.green { border-top-color: var(--green); } .stat-card.red { border-top-color: var(--red); }
+.stat-card.orange { border-top-color: var(--orange); } .stat-card.blue { border-top-color: var(--blue); }
+.stat-val { font-size: 1.8rem; font-weight: 800; color: var(--primary); }
+.stat-card.green .stat-val { color: var(--green); } .stat-card.red .stat-val { color: var(--red); }
+.stat-card.orange .stat-val { color: var(--orange); } .stat-card.blue .stat-val { color: var(--blue); }
+.stat-label { font-size: .78rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
+
+.panel { background: var(--white); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 18px; }
+.panel h2 { font-size: .95rem; font-weight: 800; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+.reports-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 820px) { .reports-grid { grid-template-columns: 1fr; } }
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .82rem; }
+.bar-row .lbl { width: 150px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.bar-row .track { flex: 1; background: #eef2f3; border-radius: 6px; height: 14px; overflow: hidden; }
+.bar-row .fill { height: 100%; background: var(--primary); border-radius: 6px; }
+.bar-row .val { width: 34px; text-align: end; font-weight: 800; color: var(--primary); flex-shrink: 0; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+th, td { padding: 9px 10px; text-align: start; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 800; font-size: .76rem; text-transform: uppercase; cursor: pointer; user-select: none; }
+th:hover { color: var(--primary); }
+th .sort-arrow { font-size: .68rem; opacity: .55; margin-inline-start: 4px; }
+th.sorted .sort-arrow { opacity: 1; color: var(--primary); }
+tr.ticket-row { cursor: pointer; }
+tr:hover td { background: #fafcfc; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 800; }
+.badge-open { background: #fdecea; color: var(--red); }
+.badge-in_progress { background: #eaf2fb; color: var(--blue); }
+.badge-waiting { background: #fff6e5; color: #b5820a; }
+.badge-closed { background: #e9f8ef; color: var(--green); }
+.priority-low { color: var(--green); } .priority-medium { color: #b5820a; } .priority-high { color: var(--red); font-weight: 800; }
+
+.filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.filters button {
+  background: #eef2f3; border: none; padding: 6px 14px; border-radius: 20px; font-size: .8rem;
+  font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text);
+}
+.filters button.active { background: var(--primary); color: #fff; }
+
+.empty { text-align: center; color: var(--muted); padding: 24px; font-size: .85rem; }
+footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--muted); }
+
+/* Ticket detail modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(20,30,32,.5);
+  align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--white); border-radius: 14px; max-width: 480px; width: 100%;
+  max-height: 85vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 16px 20px;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--white);
+}
+.modal-head h3 { font-size: 1.05rem; color: var(--primary); font-weight: 800; }
+.modal-close { background: #eef2f3; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 1rem; color: var(--text); }
+.modal-body { padding: 18px 20px; }
+.modal-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: .88rem; }
+.modal-row:last-child { border-bottom: none; }
+.modal-row .k { color: var(--muted); font-weight: 700; flex-shrink: 0; }
+.modal-row .v { font-weight: 600; text-align: end; }
+</style>
+</head>
+<body>
+
+<div id="siteHeaderFixed">
+  {% include "_ticker.html" %}
+  <header>
+    <div class="brand">
+      <div>
+        <h1 id="pageTitle"></h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+    </div>
+    <div class="tools">
+      <span class="sub" id="clock" style="font-size:.85rem;font-weight:700"></span>
+      <a href="#" class="tool-btn" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"></a>
+      <button onclick="toggleLang()" id="langBtn"></button>
+      <button onclick="loadAll()" id="refreshBtn"><i class="fas fa-rotate"></i></button>
+    </div>
+  </header>
+</div>
+<script>
+  // Same approach as base_public.html: re-measure the fixed header's real
+  // height (ticker + header together) and offset the scrollable content
+  // pane by exactly that, so content can never scroll up behind it.
+  //
+  // A fixed list of triggers (load, resize, ticker-reveal) isn't enough —
+  // the header's real height can also change later for reasons nothing
+  // explicitly calls this function for: the Arabic web font (Tajawal)
+  // finishing download and the header text reflowing/wrapping onto a
+  // second line, or the header simply wrapping differently on a narrow
+  // phone. When that happens after the reserved space was already set,
+  // the top of the page ends up clipped underneath the header. A
+  // ResizeObserver watches the header element itself and re-measures
+  // automatically whenever its real rendered size changes, for any
+  // reason — instead of trying to enumerate every possible trigger.
+  function updateHeaderSpacing() {
+    const header = document.getElementById('siteHeaderFixed');
+    const container = document.querySelector('.container');
+    if (!header || !container) return;
+    container.style.top = header.offsetHeight + 'px';
+  }
+  updateHeaderSpacing();
+  window.addEventListener('resize', updateHeaderSpacing);
+  document.addEventListener('DOMContentLoaded', updateHeaderSpacing);
+  window.addEventListener('load', updateHeaderSpacing);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(updateHeaderSpacing).catch(() => {});
+  }
+  if ('ResizeObserver' in window) {
+    const headerEl = document.getElementById('siteHeaderFixed');
+    if (headerEl) new ResizeObserver(updateHeaderSpacing).observe(headerEl);
+  }
+</script>
+
+<div class="container">
+<main>
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="panel">
+    <h2><i class="fas fa-chart-pie"></i> <span id="reportsTitle"></span></h2>
+    <div class="reports-grid">
+      <div>
+        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byCategoryLbl"></h3>
+        <div id="byCategoryChart"></div>
+      </div>
+      <div>
+        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byPriorityLbl"></h3>
+        <div id="byPriorityChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><i class="fas fa-list"></i> <span id="ticketsTitle"></span></h2>
+    <div class="filters" id="statusFilters"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th data-field="serial" onclick="sortBy('serial')" id="thSerial"></th>
+          <th data-field="category" onclick="sortBy('category')" id="thCategory"></th>
+          <th data-field="subject" onclick="sortBy('subject')" id="thSubject"></th>
+          <th data-field="priority" onclick="sortBy('priority')" id="thPriority"></th>
+          <th data-field="assigneeName" onclick="sortBy('assigneeName')" id="thAssignee"></th>
+          <th data-field="status" onclick="sortBy('status')" id="thStatus"></th>
+          <th data-field="createdAt" onclick="sortBy('createdAt')" id="thDate"></th>
+        </tr></thead>
+        <tbody id="ticketsBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer id="footerNote"></footer>
+</div>
+
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="detailTitle"></h3>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+let AR = new URLSearchParams(location.search).get('lang') !== 'en';
+let STATS = null, TICKETS = [], statusFilter = 'all';
+let sortField = 'createdAt', sortDir = 'desc';
+
+const STR = {
+  title: { ar: 'شاشة المتابعة', en: 'Monitoring' },
+  sub: { ar: 'عرض تفاصيل التذاكر والتقارير', en: 'Ticket details & reports' },
+  refresh: { ar: 'تحديث', en: 'Refresh' },
+  reports: { ar: 'التقارير', en: 'Reports' },
+  byCategory: { ar: 'حسب التصنيف', en: 'By Category' },
+  byPriority: { ar: 'حسب الأولوية', en: 'By Priority' },
+  tickets: { ar: 'التذاكر', en: 'Tickets' },
+  serial: { ar: 'الرقم', en: '#' }, category: { ar: 'التصنيف', en: 'Category' },
+  subject: { ar: 'الموضوع', en: 'Subject' }, priority: { ar: 'الأولوية', en: 'Priority' },
+  assignee: { ar: 'الموظف المسؤول', en: 'Assignee' }, status: { ar: 'الحالة', en: 'Status' },
+  date: { ar: 'التاريخ', en: 'Date' },
+  total: { ar: 'الإجمالي', en: 'Total' }, open: { ar: 'مفتوحة', en: 'Open' },
+  in_progress: { ar: 'قيد المعالجة', en: 'In Progress' }, waiting: { ar: 'معلقة (Waiting)', en: 'Waiting' },
+  closed: { ar: 'مغلقة', en: 'Closed' }, all: { ar: 'الكل', en: 'All' },
+  low: { ar: 'منخفضة', en: 'Low' }, medium: { ar: 'متوسطة', en: 'Medium' }, high: { ar: 'عالية', en: 'High' },
+  unassigned: { ar: 'غير معيّن', en: 'Unassigned' }, empty: { ar: 'لا توجد نتائج', en: 'No results' },
+  install: { ar: 'تثبيت', en: 'Install' },
+  detailTitle: { ar: 'تفاصيل التذكرة', en: 'Ticket Details' },
+  categoryItem: { ar: 'البند', en: 'Item' }, closedAt: { ar: 'تاريخ الإغلاق', en: 'Closed At' },
+  archived: { ar: 'مؤرشفة', en: 'Archived' }, yes: { ar: 'نعم', en: 'Yes' }, no: { ar: 'لا', en: 'No' },
+  footer: { ar: 'هذه الشاشة للعرض فقط ولا تتضمن أي إجراءات إدارية أو بيانات اتصال المعلمين.',
+            en: 'This screen is read-only — no admin actions and no teacher contact details are shown here.' },
+};
+function s(key) { return STR[key][AR ? 'ar' : 'en']; }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toggleLang() {
+  AR = !AR;
+  document.documentElement.lang = AR ? 'ar' : 'en';
+  document.documentElement.dir = AR ? 'rtl' : 'ltr';
+  const u = new URL(location.href); u.searchParams.set('lang', AR ? 'ar' : 'en'); history.replaceState(null, '', u);
+  renderAll();
+}
+
+function renderClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleString(AR ? 'ar' : 'en-GB', { hour12: false });
+}
+setInterval(renderClock, 1000); renderClock();
+
+async function loadAll() {
+  try {
+    const [stats, tickets] = await Promise.all([
+      fetch('/api/monitoring/stats').then(r => r.json()),
+      fetch('/api/monitoring/tickets' + (statusFilter !== 'all' ? '?status=' + statusFilter : '')).then(r => r.json()),
+    ]);
+    STATS = stats; TICKETS = tickets;
+    renderAll();
+  } catch (e) { console.error(e); }
+}
+
+function renderAll() {
+  document.getElementById('pageTitle').textContent = s('title');
+  document.getElementById('pageSub').textContent = s('sub');
+  document.getElementById('langBtn').textContent = AR ? 'EN' : 'عربي';
+  document.getElementById('refreshBtn').innerHTML = `<i class="fas fa-rotate"></i> ${s('refresh')}`;
+  document.getElementById('installAppBtn').innerHTML = `<i class="fas fa-download"></i> ${s('install')}`;
+  document.getElementById('reportsTitle').textContent = s('reports');
+  document.getElementById('byCategoryLbl').textContent = s('byCategory');
+  document.getElementById('byPriorityLbl').textContent = s('byPriority');
+  document.getElementById('ticketsTitle').textContent = s('tickets');
+  document.getElementById('footerNote').textContent = s('footer');
+  document.getElementById('thSerial').innerHTML = `${s('serial')} <span class="sort-arrow">${arrow('serial')}</span>`;
+  document.getElementById('thCategory').innerHTML = `${s('category')} <span class="sort-arrow">${arrow('category')}</span>`;
+  document.getElementById('thSubject').innerHTML = `${s('subject')} <span class="sort-arrow">${arrow('subject')}</span>`;
+  document.getElementById('thPriority').innerHTML = `${s('priority')} <span class="sort-arrow">${arrow('priority')}</span>`;
+  document.getElementById('thAssignee').innerHTML = `${s('assignee')} <span class="sort-arrow">${arrow('assigneeName')}</span>`;
+  document.getElementById('thStatus').innerHTML = `${s('status')} <span class="sort-arrow">${arrow('status')}</span>`;
+  document.getElementById('thDate').innerHTML = `${s('date')} <span class="sort-arrow">${arrow('createdAt')}</span>`;
+  document.querySelectorAll('th[data-field]').forEach(th => th.classList.toggle('sorted', th.dataset.field === sortField));
+
+  if (STATS) {
+    const cards = [
+      ['total', STATS.total, '', 'all'], ['open', STATS.byStatus.open, 'red', 'open'],
+      ['in_progress', STATS.byStatus.in_progress, 'blue', 'in_progress'], ['waiting', STATS.byStatus.waiting, 'orange', 'waiting'],
+      ['closed', STATS.byStatus.closed, 'green', 'closed'],
+    ];
+    document.getElementById('statsGrid').innerHTML = cards.map(([key, val, cls, filterVal]) => `
+      <div class="stat-card ${cls} ${statusFilter === filterVal ? 'is-active' : ''}" role="button" tabindex="0"
+           onclick="setStatusFilter('${filterVal}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setStatusFilter('${filterVal}')}"
+           title="${s(key)}">
+        <div class="stat-val">${val ?? 0}</div><div class="stat-label">${s(key)}</div>
+      </div>
+    `).join('');
+
+    const maxCat = Math.max(1, ...Object.values(STATS.byCategory || {}));
+    document.getElementById('byCategoryChart').innerHTML = Object.entries(STATS.byCategory || {}).map(([name, val]) => `
+      <div class="bar-row"><span class="lbl" title="${esc(name)}">${esc(name)}</span>
+      <span class="track"><span class="fill" style="width:${(val / maxCat * 100).toFixed(0)}%"></span></span>
+      <span class="val">${val}</span></div>
+    `).join('') || `<div class="empty">${s('empty')}</div>`;
+
+    const maxPri = Math.max(1, ...Object.values(STATS.byPriority || {}));
+    document.getElementById('byPriorityChart').innerHTML = ['low', 'medium', 'high'].map(p => `
+      <div class="bar-row"><span class="lbl">${s(p)}</span>
+      <span class="track"><span class="fill" style="width:${((STATS.byPriority[p]||0) / maxPri * 100).toFixed(0)}%"></span></span>
+      <span class="val">${STATS.byPriority[p] || 0}</span></div>
+    `).join('');
+  }
+
+  const filters = ['all', 'open', 'in_progress', 'waiting', 'closed'];
+  document.getElementById('statusFilters').innerHTML = filters.map(f => `
+    <button class="${statusFilter === f ? 'active' : ''}" onclick="setStatusFilter('${f}')">${s(f)}</button>
+  `).join('');
+
+  document.getElementById('ticketsBody').innerHTML = sortedTickets().map((tk, i) => {
+    const created = (tk.createdAt || '').replace('T', ' ').slice(0, 16);
+    return `<tr class="ticket-row" onclick="showDetail(${tk.id})">
+      <td><strong style="color:var(--primary)">#${tk.serial}</strong></td>
+      <td>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(tk.subject)}">${esc(tk.subject)}</td>
+      <td><span class="priority-${tk.priority}">${s(tk.priority)}</span></td>
+      <td>${esc(tk.assigneeName || s('unassigned'))}</td>
+      <td><span class="badge badge-${tk.status}">${s(tk.status)}</span></td>
+      <td>${created}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="empty">${s('empty')}</td></tr>`;
+}
+
+function arrow(field) {
+  if (field !== sortField) return '';
+  return sortDir === 'asc' ? '▲' : '▼';
+}
+
+function sortBy(field) {
+  if (sortField === field) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { sortField = field; sortDir = field === 'createdAt' ? 'desc' : 'asc'; }
+  renderAll();
+}
+
+function sortedTickets() {
+  const list = [...TICKETS];
+  list.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (sortField === 'serial') { av = Number(av) || 0; bv = Number(bv) || 0; }
+    else { av = (av || '').toString().toLowerCase(); bv = (bv || '').toString().toLowerCase(); }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return list;
+}
+
+function showDetail(id) {
+  const tk = TICKETS.find(t => t.id === id);
+  if (!tk) return;
+  document.getElementById('detailTitle').textContent = `${s('detailTitle')} #${tk.serial}`;
+  const rows = [
+    [s('category'), esc(tk.category) || '—'],
+    [s('categoryItem'), esc(tk.categoryItem) || '—'],
+    [s('subject'), esc(tk.subject) || '—'],
+    [s('priority'), s(tk.priority)],
+    [s('status'), s(tk.status)],
+    [s('assignee'), esc(tk.assigneeName) || s('unassigned')],
+    [s('date'), (tk.createdAt || '').replace('T', ' ').slice(0, 16) || '—'],
+    [s('closedAt'), tk.closedAt ? tk.closedAt.replace('T', ' ').slice(0, 16) : '—'],
+    [s('archived'), tk.archived ? s('yes') : s('no')],
+  ];
+  document.getElementById('detailBody').innerHTML = rows.map(([k, v]) =>
+    `<div class="modal-row"><span class="k">${k}</span><span class="v">${v}</span></div>`
+  ).join('');
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+// ESC closes the ticket detail popup.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+function setStatusFilter(f) { statusFilter = f; loadAll(); }
+
+document.documentElement.lang = AR ? 'ar' : 'en';
+document.documentElement.dir = AR ? 'rtl' : 'ltr';
+loadAll();
+setInterval(loadAll, 60000); // auto-refresh — this page is meant to stay open unattended (e.g. an office screen)
+
+// ── PWA: installable + offline-friendly, same as the rest of the site ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('installAppBtn');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (!isStandalone) {
+  if (isIOS) {
+    if (installBtn) installBtn.style.display = 'flex';
+  } else {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      deferredInstallPrompt = e;
+      if (installBtn) installBtn.style.display = 'flex';
+    });
+  }
+}
+function handleInstallClick(e) {
+  e.preventDefault();
+  if (isIOS) {
+    alert(AR
+      ? 'لإضافة الشاشة للشاشة الرئيسية:\n١) اضغط زر المشاركة ⬆️ بأسفل الشاشة\n٢) اختر "Add to Home Screen"'
+      : 'To add this to your Home Screen:\n1) Tap the Share button ⬆️\n2) Choose "Add to Home Screen"');
+    return;
+  }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => {
+      deferredInstallPrompt = null;
+      if (installBtn) installBtn.style.display = 'none';
+    });
+  }
+}
+window.addEventListener('appinstalled', () => { if (installBtn) installBtn.style.display = 'none'; });
+</script>
+</body>
+</html>
