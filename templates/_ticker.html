@@ -53,7 +53,16 @@
   #globalTicker .ticker-track.shadow-light .ticker-item { text-shadow: 0 1px 3px rgba(0,0,0,.6), 0 0 2px rgba(0,0,0,.45); }
   #globalTicker .ticker-track.shadow-strong .ticker-item { text-shadow: 0 2px 5px rgba(0,0,0,.85), 0 0 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.9); }
   #globalTicker .ticker-item a { color: inherit; text-decoration: underline; }
-  #globalTicker .ticker-item img.ticker-logo { height: 22px; vertical-align: middle; margin-right: 10px; }
+  /* margin-inline-end (not margin-right): each ticker-item carries
+     dir="auto" so Arabic content resolves to RTL internally, which flips
+     the VISUAL order of the logo and its text inside that one item (even
+     though the outer track is always force-LTR for the scroll math) —
+     the logo ends up on the visual right, same side a physical
+     margin-right already sits on, so the gap lands on the wrong side of
+     the logo (away from the text) and the two look glued together. The
+     logical property instead always lands the gap between the logo and
+     the text, whichever way that item itself resolves. */
+  #globalTicker .ticker-item img.ticker-logo { height: 22px; vertical-align: middle; margin-inline-end: 10px; }
   /* ticker-scroll-ltr moves leftward (content exits on the left) — the
      conventional news-ticker motion for LTR/English pages. ticker-scroll-rtl
      moves rightward (content exits on the right) — its mirror, for
