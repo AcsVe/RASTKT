@@ -1,56 +1,330 @@
+import random
+import string
+import secrets
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, date
+from datetime import datetime
 
 db = SQLAlchemy()
 
+# ── Roles ───────────────────────────────────────────────────────────────────
+ROLE_TECH          = 'technical_support'
+ROLE_SYSTEM_ADMIN  = 'system_admin'
+ROLE_ADMINISTRATOR = 'administrator'
+ALL_ROLES = [ROLE_TECH, ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR]
+
+ROLE_LABELS_AR = {
+    ROLE_TECH: 'دعم فني',
+    ROLE_SYSTEM_ADMIN: 'مسؤول نظام',
+    ROLE_ADMINISTRATOR: 'مدير عام',
+}
+ROLE_LABELS_EN = {
+    ROLE_TECH: 'Technical Support',
+    ROLE_SYSTEM_ADMIN: 'System Admin',
+    ROLE_ADMINISTRATOR: 'Administrator',
+}
+
+TICKET_STATUSES = ['open', 'in_progress', 'waiting', 'closed']
+PRIORITIES = ['low', 'medium', 'high']
+
 
 class Teacher(db.Model):
-    """Roster of teachers. stage/grade/section are all optional and
-    independently settable — a teacher can be tied to a whole stage, a
-    specific grade, or one exact section. Used both as a reference/contact
-    list and to auto-fill the booking form when a matching name is entered."""
+    """Roster of teachers — the only people allowed to submit a support
+    ticket. A submission is rejected server-side unless it matches a row
+    here (see utils.helpers.match_teacher) — unless the "accept external
+    submitters" setting is on, in which case an `external=True` row is
+    created on the fly for each guest and kept out of the normal roster
+    views/autocomplete."""
     __tablename__ = 'teachers'
     id         = db.Column(db.Integer, primary_key=True)
     name       = db.Column(db.String(200), nullable=False)
     email      = db.Column(db.String(200))
     phone      = db.Column(db.String(50))
-    stage_id   = db.Column(db.Integer, db.ForeignKey('stages.id'))
-    grade_id   = db.Column(db.Integer, db.ForeignKey('grades.id'))
-    section_id = db.Column(db.Integer, db.ForeignKey('sections.id'))
+    department = db.Column(db.String(200))   # free-text (e.g. subject/section) — informational only
+    active     = db.Column(db.Boolean, default=True)
+    external   = db.Column(db.Boolean, default=False)   # auto-created guest row, not a real roster entry
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
             'id': self.id, 'name': self.name, 'email': self.email or '',
-            'phone': self.phone or '', 'stageId': self.stage_id,
-            'gradeId': self.grade_id, 'sectionId': self.section_id,
+            'phone': self.phone or '', 'department': self.department or '',
+            'active': self.active if self.active is not None else True,
         }
 
 
-class Student(db.Model):
-    """Roster of students, organized by stage/grade/section — used as the
-    prefilled source list for the laptop-checkout form (item 3/4)."""
-    __tablename__ = 'students'
-    id         = db.Column(db.Integer, primary_key=True)
-    name       = db.Column(db.String(200), nullable=False)
-    stage_id   = db.Column(db.Integer, db.ForeignKey('stages.id'), nullable=False)
-    grade_id   = db.Column(db.Integer, db.ForeignKey('grades.id'), nullable=False)
-    section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+class StaffUser(db.Model):
+    """A support-desk account. Three roles, each a superset of the one
+    below it:
+      - technical_support: comment, close/reopen, merge (own assigned tickets)
+      - system_admin: all of the above on ANY ticket + assign/unassign/reassign
+      - administrator: all of the above + manage staff accounts
+    """
+    __tablename__ = 'staff_users'
+    id            = db.Column(db.Integer, primary_key=True)
+    username      = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    full_name     = db.Column(db.String(200), nullable=False)
+    email         = db.Column(db.String(200))
+    role          = db.Column(db.String(30), nullable=False, default=ROLE_TECH)
+    active        = db.Column(db.Boolean, default=True)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login    = db.Column(db.DateTime)
+    # Two extra-sensitive features that don't follow the normal role tiers —
+    # an Administrator grants them per staff account explicitly (checkboxes
+    # on the staff edit screen), independent of role. New accounts default
+    # to False (off) at the Python/model level; init_db()'s migration
+    # backfills True for staff who already had de-facto access before these
+    # columns existed, so upgrading doesn't lock anyone out mid-use.
+    can_change_priority  = db.Column(db.Boolean, default=False)
+    can_manage_reminders = db.Column(db.Boolean, default=False)
 
     def to_dict(self):
         return {
-            'id': self.id, 'name': self.name, 'stageId': self.stage_id,
-            'gradeId': self.grade_id, 'sectionId': self.section_id,
+            'id': self.id, 'username': self.username, 'fullName': self.full_name,
+            'email': self.email or '', 'role': self.role,
+            'roleLabelAr': ROLE_LABELS_AR.get(self.role, self.role),
+            'roleLabelEn': ROLE_LABELS_EN.get(self.role, self.role),
+            'active': self.active if self.active is not None else True,
+            'lastLogin': self.last_login.isoformat() if self.last_login else '',
+            'canChangePriority': bool(self.can_change_priority),
+            'canManageReminders': bool(self.can_manage_reminders),
+        }
+
+    # ── permission helpers ──────────────────────────────────────────────
+    def is_admin(self):
+        return self.role == ROLE_ADMINISTRATOR
+
+    def is_system_admin_or_above(self):
+        return self.role in (ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR)
+
+    def can_manage_ticket(self, ticket):
+        """Can comment / close / reopen / archive / merge this ticket."""
+        if self.is_system_admin_or_above():
+            return True
+        return ticket.assignee_id == self.id
+
+    def can_assign(self):
+        return self.is_system_admin_or_above()
+
+    def can_manage_staff(self):
+        return self.is_admin()
+
+    def can_manage_categories(self):
+        return self.is_system_admin_or_above()
+
+    def can_set_priority(self):
+        """Sensitive, Administrator-granted feature — independent of role
+        (still requires can_manage_ticket() on the specific ticket too)."""
+        return bool(self.can_change_priority)
+
+    def can_manage_reminder_settings(self):
+        """Sensitive, Administrator-granted feature — the global Auto
+        Reminder for Unprocessed Tickets settings (enable/hours/check-now).
+        Still requires is_system_admin_or_above() as a floor."""
+        return bool(self.can_manage_reminders)
+
+
+class Category(db.Model):
+    """Ticket category (replaces the old booking form's "الصف / Grade"
+    field) — e.g. Hardware, Software, Network, Platforms, Screens,
+    Telephone System."""
+    __tablename__ = 'categories'
+    id         = db.Column(db.Integer, primary_key=True)
+    name_ar    = db.Column(db.String(150), nullable=False)
+    name_en    = db.Column(db.String(150))
+    active     = db.Column(db.Boolean, default=True)
+    sort_order = db.Column(db.Integer, default=0)
+
+    items = db.relationship('CategoryItem', backref='category',
+                             cascade='all, delete-orphan', order_by='CategoryItem.sort_order')
+
+    def to_dict(self, with_items=False):
+        d = {
+            'id': self.id, 'nameAr': self.name_ar, 'nameEn': self.name_en or self.name_ar,
+            'active': self.active if self.active is not None else True,
+        }
+        if with_items:
+            d['items'] = [i.to_dict() for i in self.items]
+        return d
+
+
+class CategoryItem(db.Model):
+    """One admin-defined identifier under a category (replaces the old
+    "الحصة / Period" field) — e.g. under "Hardware": Desktop, Printer,
+    Projector... each with its own identifier/code, in Arabic and/or
+    English."""
+    __tablename__ = 'category_items'
+    id          = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    code        = db.Column(db.String(50))       # admin-assigned identifier (Arabic / default)
+    code_en     = db.Column(db.String(50))       # admin-assigned identifier (English)
+    name_ar     = db.Column(db.String(150), nullable=False)
+    name_en     = db.Column(db.String(150))
+    active      = db.Column(db.Boolean, default=True)
+    sort_order  = db.Column(db.Integer, default=0)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'categoryId': self.category_id, 'code': self.code or '',
+            'codeEn': self.code_en or '',
+            'nameAr': self.name_ar, 'nameEn': self.name_en or self.name_ar,
+            'active': self.active if self.active is not None else True,
+        }
+
+
+class Ticket(db.Model):
+    __tablename__ = 'tickets'
+    id              = db.Column(db.Integer, primary_key=True)
+
+    # ── Numbering ─────────────────────────────────────────────────────
+    # Sequential, shown to staff in the control panel. Never reused, even
+    # when a ticket is merged away (its number is simply retired).
+    serial_number   = db.Column(db.Integer, unique=True, nullable=False)
+    # Random, given to the requester for status lookup ("للاستعلام").
+    tracking_code   = db.Column(db.String(12), unique=True, nullable=False)
+
+    # ── Requester (teacher) ──────────────────────────────────────────
+    teacher_id      = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    teacher_name    = db.Column(db.String(200), nullable=False)   # snapshot
+    teacher_email   = db.Column(db.String(200))
+    teacher_phone   = db.Column(db.String(50))
+
+    # ── Classification ────────────────────────────────────────────────
+    category_id       = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    category_name     = db.Column(db.String(150))    # snapshot
+    category_item_id  = db.Column(db.Integer, db.ForeignKey('category_items.id'))
+    category_item_name = db.Column(db.String(150))   # snapshot
+
+    subject         = db.Column(db.String(300), nullable=False)
+    description     = db.Column(db.Text)
+    location        = db.Column(db.String(200))     # optional free text (room / lab / office)
+    priority        = db.Column(db.String(10), default='medium')   # low / medium / high
+    attachments     = db.Column(db.Text)             # comma-separated URLs
+
+    # ── Workflow ──────────────────────────────────────────────────────
+    status          = db.Column(db.String(20), default='open')   # open / in_progress / waiting / closed
+    assignee_id     = db.Column(db.Integer, db.ForeignKey('staff_users.id'))
+    assigned_at     = db.Column(db.DateTime)
+
+    archived        = db.Column(db.Boolean, default=False)
+
+    # merged tickets: this ticket was folded into `merged_into_id` and its
+    # own serial number is retired/cancelled.
+    merged_into_id  = db.Column(db.Integer, db.ForeignKey('tickets.id'))
+
+    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+    closed_at       = db.Column(db.DateTime)
+    reopened_at     = db.Column(db.DateTime)
+
+    # ── Auto reminder (see utils.reminder_utils) ───────────────────────
+    # Set once an "unprocessed ticket" reminder has been sent for the
+    # current period of inactivity, so the same ticket isn't re-notified
+    # every time the cron check runs. Reset to False whenever the ticket
+    # gets a new comment or its status/assignment changes, so a ticket
+    # that goes stale again later can trigger a fresh reminder.
+    reminder_sent   = db.Column(db.Boolean, default=False)
+
+    # Which tickets the auto-reminder sweep should even look at. Off by
+    # default — an admin opts specific tickets in (individually or via
+    # multi-select), rather than the feature silently applying to every
+    # open ticket. The global "hours" threshold and master on/off switch
+    # (AppSettings) still apply on top of this.
+    reminder_enabled = db.Column(db.Boolean, default=False)
+
+    comments = db.relationship('TicketComment', backref='ticket',
+                                cascade='all, delete-orphan', order_by='TicketComment.created_at',
+                                foreign_keys='TicketComment.ticket_id')
+
+    def to_dict(self, include_internal=True):
+        comments = [c.to_dict() for c in self.comments if include_internal or not c.internal]
+        return {
+            'id': self.id,
+            'serial': self.serial_number,
+            'trackingCode': self.tracking_code,
+            'teacherId': self.teacher_id,
+            'teacherName': self.teacher_name,
+            'teacherEmail': self.teacher_email or '',
+            'teacherPhone': self.teacher_phone or '',
+            'categoryId': self.category_id,
+            'category': self.category_name or '',
+            'categoryItemId': self.category_item_id,
+            'categoryItem': self.category_item_name or '',
+            'subject': self.subject,
+            'description': self.description or '',
+            'location': self.location or '',
+            'priority': self.priority or 'medium',
+            'attachments': [a for a in (self.attachments or '').split(',') if a],
+            'status': self.status,
+            'assigneeId': self.assignee_id,
+            'assigneeName': self.assignee.full_name if self.assignee_id and self.assignee else '',
+            'assignedAt': self.assigned_at.isoformat() if self.assigned_at else '',
+            'archived': self.archived or False,
+            'mergedIntoId': self.merged_into_id,
+            'mergedIntoSerial': self.merged_into.serial_number if self.merged_into_id and self.merged_into else None,
+            'createdAt': self.created_at.isoformat() if self.created_at else '',
+            'closedAt': self.closed_at.isoformat() if self.closed_at else '',
+            'reopenedAt': self.reopened_at.isoformat() if self.reopened_at else '',
+            'reminderEnabled': self.reminder_enabled or False,
+            'comments': comments,
+        }
+
+    def to_monitor_dict(self):
+        """Reduced, privacy-conscious view used by the public, no-login
+        Monitoring page: no requester contact info (email/phone) and no
+        internal-only comments."""
+        return {
+            'id': self.id,  # needed so the frontend can look up the exact
+                             # ticket that was clicked (not just the first
+                             # one in whatever list is currently loaded)
+            'serial': self.serial_number,
+            'teacherName': self.teacher_name,
+            'category': self.category_name or '',
+            'categoryItem': self.category_item_name or '',
+            'subject': self.subject,
+            'priority': self.priority or 'medium',
+            'status': self.status,
+            'assigneeName': self.assignee.full_name if self.assignee_id and self.assignee else '',
+            'createdAt': self.created_at.isoformat() if self.created_at else '',
+            'closedAt': self.closed_at.isoformat() if self.closed_at else '',
+            'archived': self.archived or False,
+        }
+
+
+Ticket.assignee = db.relationship('StaffUser', foreign_keys=[Ticket.assignee_id])
+Ticket.merged_into = db.relationship('Ticket', remote_side=[Ticket.id], foreign_keys=[Ticket.merged_into_id])
+
+
+class TicketComment(db.Model):
+    """One entry in a ticket's shared communication log. Either side —
+    the requester (teacher) or a staff member — can post one; `internal`
+    marks a staff-only note that never shows on the requester's lookup
+    page."""
+    __tablename__ = 'ticket_comments'
+    id          = db.Column(db.Integer, primary_key=True)
+    ticket_id   = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
+    author_role = db.Column(db.String(20), nullable=False)   # 'teacher' | 'staff' | 'system'
+    author_name = db.Column(db.String(200))
+    staff_id    = db.Column(db.Integer, db.ForeignKey('staff_users.id'))
+    body        = db.Column(db.Text, nullable=False)
+    internal    = db.Column(db.Boolean, default=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'ticketId': self.ticket_id, 'authorRole': self.author_role,
+            'authorName': self.author_name or '', 'body': self.body,
+            'internal': self.internal or False,
+            'createdAt': self.created_at.isoformat() if self.created_at else '',
         }
 
 
 class PushSubscription(db.Model):
-    """A browser's Web Push subscription (from the admin's installed PWA),
-    so the server can send a real push notification — one that arrives
-    even if the app/browser is fully closed — when a new booking comes in."""
+    """A staff device's Web Push subscription (collected from the
+    installed admin PWA) so the server can notify staff of new/assigned
+    tickets even when their browser is fully closed."""
     __tablename__ = 'push_subscriptions'
     id         = db.Column(db.Integer, primary_key=True)
+    staff_id   = db.Column(db.Integer, db.ForeignKey('staff_users.id'))
     endpoint   = db.Column(db.Text, nullable=False, unique=True)
     p256dh     = db.Column(db.String(255), nullable=False)
     auth       = db.Column(db.String(255), nullable=False)
@@ -60,576 +334,122 @@ class PushSubscription(db.Model):
         return {'endpoint': self.endpoint, 'keys': {'p256dh': self.p256dh, 'auth': self.auth}}
 
 
-class BookingReminder(db.Model):
-    """A one-off reminder email scheduled for an exact date/time. `kind`
-    keeps the admin's personal follow-up completely independent from a
-    teacher's own reminder about their booking — one has nothing to do
-    with the other, and setting one never touches or replaces the other."""
-    __tablename__ = 'booking_reminders'
-    id              = db.Column(db.Integer, primary_key=True)
-    booking_id      = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
-    kind            = db.Column(db.String(10), nullable=False, default='admin')  # 'admin' or 'teacher'
-    remind_at       = db.Column(db.DateTime, nullable=False)
-    recipient_email = db.Column(db.String(200), nullable=False)
-    note            = db.Column(db.Text)
-    sent            = db.Column(db.Boolean, default=False)
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            'id': self.id, 'bookingId': self.booking_id, 'kind': self.kind,
-            'remindAt': self.remind_at.strftime('%Y-%m-%dT%H:%M') if self.remind_at else '',
-            'recipientEmail': self.recipient_email or '',
-            'note': self.note or '', 'sent': self.sent,
-        }
-
-
-class BookingComment(db.Model):
-    """An internal note/discussion thread attached to a booking, visible
-    only in the admin dashboard — lets whoever is handling the booking
-    leave context for the next person without editing the booking itself.
-    Adding one also emails the teacher and any opted-in stage contacts."""
-    __tablename__ = 'booking_comments'
-    id          = db.Column(db.Integer, primary_key=True)
-    booking_id  = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
-    author_name = db.Column(db.String(200))
-    body        = db.Column(db.Text, nullable=False)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'bookingId': self.booking_id,
-            'authorName': self.author_name or '',
-            'body': self.body,
-            'createdAt': self.created_at.isoformat() if self.created_at else '',
-        }
-
-
-class BookingCheckout(db.Model):
-    """One laptop-handover manifest per booking, filled by the teacher after
-    the booking is approved. Submitting is not conditioned on filling every
-    row — a teacher can leave absent students blank."""
-    __tablename__ = 'booking_checkouts'
-    id           = db.Column(db.Integer, primary_key=True)
-    booking_id   = db.Column(db.Integer, db.ForeignKey('bookings.id'), unique=True, nullable=False)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
-    notes        = db.Column(db.Text)  # optional teacher remarks about the devices/trolley
-
-    lines = db.relationship('CheckoutLine', backref='checkout', cascade='all, delete-orphan',
-                             order_by='CheckoutLine.seq')
-
-    def to_dict(self):
-        return {
-            'id': self.id, 'bookingId': self.booking_id,
-            'submittedAt': self.submitted_at.isoformat() if self.submitted_at else '',
-            'lines': [l.to_dict() for l in self.lines],
-        }
-
-
-class CheckoutLine(db.Model):
-    __tablename__ = 'checkout_lines'
-    id             = db.Column(db.Integer, primary_key=True)
-    checkout_id    = db.Column(db.Integer, db.ForeignKey('booking_checkouts.id'), nullable=False)
-    seq            = db.Column(db.Integer, nullable=False)
-    student_id     = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    student_name   = db.Column(db.String(200))   # snapshot, survives roster edits/deletes
-    laptop_number  = db.Column(db.Integer)        # 1..25, nullable = not handed out
-
-    def to_dict(self):
-        return {
-            'seq': self.seq, 'studentId': self.student_id,
-            'studentName': self.student_name, 'laptopNumber': self.laptop_number,
-        }
-
-
-class Booking(db.Model):
-    __tablename__ = 'bookings'
-    id            = db.Column(db.Integer, primary_key=True)
-    req_id        = db.Column(db.String(32), unique=True, nullable=False)
-    action_token  = db.Column(db.String(43))  # secures one-click approve/reject links in staff emails
-    receipt_printed = db.Column(db.Boolean, default=False)  # for the auto-print-on-approval station
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
-    name          = db.Column(db.String(200), nullable=False)
-    email         = db.Column(db.String(200), nullable=False)
-    phone         = db.Column(db.String(50))
-    on_behalf     = db.Column(db.String(200))
-    event_title   = db.Column(db.String(300))
-    booking_date  = db.Column(db.String(10), nullable=False)   # yyyy-MM-dd
-
-    # ── Academic-structure fields (stage/grade/section/period) ─────────────
-    stage_id       = db.Column(db.Integer, db.ForeignKey('stages.id'))
-    grade_id       = db.Column(db.Integer, db.ForeignKey('grades.id'))
-    section_id     = db.Column(db.Integer, db.ForeignKey('sections.id'))
-    period_id      = db.Column(db.Integer, db.ForeignKey('periods.id'))
-    trolley_code   = db.Column(db.String(50))    # snapshot of the trolley identifier at booking time
-    stage_name     = db.Column(db.String(200))   # snapshot labels (survive later edits/deletes)
-    grade_name     = db.Column(db.String(100))
-    section_name   = db.Column(db.String(100))
-    period_number  = db.Column(db.Integer)
-    start_time     = db.Column(db.String(5))     # derived from the period, kept for display/reports
-    end_time       = db.Column(db.String(5))
-
-    # ── Legacy hall-booking fields (kept only so old records keep displaying) ──
-    hall          = db.Column(db.String(200))
-    end_date      = db.Column(db.String(10))
-    full_day      = db.Column(db.Boolean, default=False)
-
-    notes         = db.Column(db.Text)
-    attachments   = db.Column(db.Text)   # comma-separated URLs
-    status        = db.Column(db.String(20), default='pending')  # pending/approved/completed/rejected/cancelled
-    checkout_reminder_sent = db.Column(db.Boolean, default=False)
-    staff_reminder_sent = db.Column(db.Boolean, default=False)  # one-shot "your period starts soon" nudge to staff
-    reject_reason = db.Column(db.Text)
-    cancel_reason = db.Column(db.Text)   # optional, set when an admin cancels a booking
-    cc_emails     = db.Column(db.Text)   # semicolon-separated
-    action_date   = db.Column(db.DateTime)
-    approved_by   = db.Column(db.String(200))  # name of whoever approved the booking
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'reqId': self.req_id,
-            'createdAt': self.created_at.isoformat() if self.created_at else '',
-            'name': self.name,
-            'email': self.email,
-            'phone': self.phone or '',
-            'behalf': self.on_behalf or '',
-            'title': self.event_title or '',
-            'stageId': self.stage_id,
-            'gradeId': self.grade_id,
-            'sectionId': self.section_id,
-            'periodId': self.period_id,
-            'trolleyCode': self.trolley_code or '',
-            'stage': self.stage_name or self.hall or '',
-            'grade': self.grade_name or '',
-            'section': self.section_name or '',
-            'periodNumber': self.period_number,
-            'date': self.booking_date,
-            'startTime': self.start_time or '',
-            'endTime': self.end_time or '',
-            'notes': self.notes or '',
-            'att': [a for a in (self.attachments or '').split(',') if a and '[DEL]' not in a],
-            'status': self.status,
-            'rejectReason': self.reject_reason or '',
-            'cancelReason': self.cancel_reason or '',
-            'approvedBy': self.approved_by or '',
-            'cc': self.cc_emails or '',
-        }
-
-
-class Stage(db.Model):
-    """A study stage (e.g. أساسي / ثانوي). Each stage owns exactly one laptop
-    trolley, identified by a unique trolley_code — this is the physical
-    resource being booked."""
-    __tablename__ = 'stages'
-    id           = db.Column(db.Integer, primary_key=True)
-    name_ar      = db.Column(db.String(200), nullable=False)
-    name_en      = db.Column(db.String(200))
-    trolley_code = db.Column(db.String(50), unique=True, nullable=False)
-    active       = db.Column(db.Boolean, default=True)
-    sort_order   = db.Column(db.Integer, default=0)
-
-    grades = db.relationship('Grade', backref='stage', cascade='all, delete-orphan',
-                              order_by='Grade.sort_order')
-
-    def to_dict(self, with_grades=False):
-        d = {
-            'id': self.id,
-            'nameAr': self.name_ar,
-            'nameEn': self.name_en or self.name_ar,
-            'trolleyCode': self.trolley_code,
-            'active': self.active,
-        }
-        if with_grades:
-            d['grades'] = [g.to_dict(with_sections=True) for g in self.grades]
-        return d
-
-
-class Grade(db.Model):
-    __tablename__ = 'grades'
-    id         = db.Column(db.Integer, primary_key=True)
-    stage_id   = db.Column(db.Integer, db.ForeignKey('stages.id'), nullable=False)
-    name_ar    = db.Column(db.String(100), nullable=False)
-    name_en    = db.Column(db.String(100))
-    sort_order = db.Column(db.Integer, default=0)
-
-    sections = db.relationship('Section', backref='grade', cascade='all, delete-orphan',
-                                order_by='Section.sort_order')
-
-    def to_dict(self, with_sections=False):
-        d = {
-            'id': self.id,
-            'stageId': self.stage_id,
-            'nameAr': self.name_ar,
-            'nameEn': self.name_en or self.name_ar,
-        }
-        if with_sections:
-            d['sections'] = [s.to_dict() for s in self.sections]
-        return d
-
-
-class Section(db.Model):
-    __tablename__ = 'sections'
-    id         = db.Column(db.Integer, primary_key=True)
-    grade_id   = db.Column(db.Integer, db.ForeignKey('grades.id'), nullable=False)
-    name_ar    = db.Column(db.String(100), nullable=False)
-    name_en    = db.Column(db.String(100))
-    sort_order = db.Column(db.Integer, default=0)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'gradeId': self.grade_id,
-            'nameAr': self.name_ar,
-            'nameEn': self.name_en or self.name_ar,
-        }
-
-
-class Period(db.Model):
-    """One of the 8 daily class periods, shared by both stages."""
-    __tablename__ = 'periods'
-    id         = db.Column(db.Integer, primary_key=True)
-    number     = db.Column(db.Integer, nullable=False, unique=True)  # 1..8
-    label_ar   = db.Column(db.String(100))
-    start_time = db.Column(db.String(5))
-    end_time   = db.Column(db.String(5))
-    active     = db.Column(db.Boolean, default=True)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'number': self.number,
-            'label': self.label_ar or f'الحصة {self.number}',
-            'startTime': self.start_time or '',
-            'endTime': self.end_time or '',
-            'active': self.active,
-        }
-
-
-class GradePeriodTime(db.Model):
-    """Per-grade, per-weekday override of a period's start/end time. Grades
-    within the same stage can run different bell schedules on different
-    days (e.g. a shorter Tuesday, or a different timetable for grades 7-9
-    vs 10-12) — this table lets each (grade, weekday, period) combination
-    carry its own time, while `Period.start_time/end_time` stays as the
-    shared fallback for any grade/day that has no override here.
-    weekday follows Python's date.weekday(): Monday=0 .. Sunday=6."""
-    __tablename__ = 'grade_period_times'
-    id            = db.Column(db.Integer, primary_key=True)
-    grade_id      = db.Column(db.Integer, db.ForeignKey('grades.id'), nullable=False)
-    weekday       = db.Column(db.Integer, nullable=False)
-    period_number = db.Column(db.Integer, nullable=False)
-    start_time    = db.Column(db.String(5), nullable=False)
-    end_time      = db.Column(db.String(5), nullable=False)
-
-    __table_args__ = (
-        db.UniqueConstraint('grade_id', 'weekday', 'period_number', name='uq_grade_period_time'),
-    )
-
-    def to_dict(self):
-        return {
-            'id': self.id, 'gradeId': self.grade_id, 'weekday': self.weekday,
-            'periodNumber': self.period_number,
-            'startTime': self.start_time, 'endTime': self.end_time,
-        }
-
-
 class AppSetting(db.Model):
-    """Simple key/value store for site-wide toggles (auto-approve bookings,
-    etc.) — one row per setting, so new switches can be added later without
-    a schema change."""
+    """Simple key/value store for system-wide toggles (e.g. whether to
+    accept tickets from people outside the teacher roster)."""
     __tablename__ = 'app_settings'
-    key   = db.Column(db.String(100), primary_key=True)
-    value = db.Column(db.String(500))
-
-    @staticmethod
-    def get_bool(key, default=False):
-        row = AppSetting.query.get(key)
-        if row is None:
-            return default
-        return row.value == '1'
-
-    @staticmethod
-    def set_bool(key, value):
-        row = AppSetting.query.get(key)
-        if row is None:
-            row = AppSetting(key=key, value='1' if value else '0')
-            db.session.add(row)
-        else:
-            row.value = '1' if value else '0'
-        db.session.commit()
-
-    @staticmethod
-    def get_str(key, default=''):
-        row = AppSetting.query.get(key)
-        if row is None or row.value is None:
-            return default
-        return row.value
-
-    @staticmethod
-    def set_str(key, value):
-        row = AppSetting.query.get(key)
-        if row is None:
-            row = AppSetting(key=key, value=value)
-            db.session.add(row)
-        else:
-            row.value = value
-        db.session.commit()
+    key   = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.Text)
 
 
-class BlockedPeriod(db.Model):
-    """A date/time range during which a stage's trolley (or all trolleys, if
-    left blank) cannot be booked."""
-    __tablename__ = 'blocked_periods'
-    id         = db.Column(db.Integer, primary_key=True)
-    from_date  = db.Column(db.String(10), nullable=False)
-    to_date    = db.Column(db.String(10), nullable=False)
-    hall       = db.Column(db.String(200))   # stores the trolley_code; empty = all stages
-    from_time  = db.Column(db.String(5))
-    to_time    = db.Column(db.String(5))
-    reason     = db.Column(db.String(300))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            's': self.from_date,
-            'e': self.to_date,
-            'hall': self.hall or '',
-            'fromT': self.from_time or '',
-            'toT': self.to_time or '',
-            'r': self.reason or '',
-        }
+def get_setting(key, default=None):
+    row = AppSetting.query.get(key)
+    return row.value if row is not None else default
 
 
-class Contact(db.Model):
-    __tablename__ = 'contacts'
-    id              = db.Column(db.Integer, primary_key=True)
-    email           = db.Column(db.String(200), nullable=False)
-    name            = db.Column(db.String(200))
-    stage_id        = db.Column(db.Integer, db.ForeignKey('stages.id'))  # null = all stages
-    notify_new      = db.Column(db.Boolean, default=True)   # new pending booking (includes one-click approve/reject links)
-    new_readonly    = db.Column(db.Boolean, default=False)  # if notify_new is also True, strips the approve/reject links for this contact — informational only
-    notify_approved = db.Column(db.Boolean, default=False)  # plain notice once a booking is approved (no action links)
-    notify_handover = db.Column(db.Boolean, default=False)  # auto-notified when a teacher submits a device handover for this stage
-    notify_staff_reminder = db.Column(db.Boolean, default=False)  # gets the daily "bookings today" summary + the per-booking reminder before each period starts
-    notify_comment  = db.Column(db.Boolean, default=False)  # gets an email whenever a comment is added to one of this stage's bookings
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+def set_setting(key, value):
+    row = AppSetting.query.get(key)
+    if row is None:
+        row = AppSetting(key=key)
+        db.session.add(row)
+    row.value = value
+    db.session.commit()
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'email': self.email,
-            'name': self.name or '',
-            'stageId': self.stage_id,
-            'notifyNew': self.notify_new if self.notify_new is not None else True,
-            'newReadonly': self.new_readonly or False,
-            'notifyApproved': self.notify_approved or False,
-            'notifyHandover': self.notify_handover or False,
-            'notifyStaffReminder': self.notify_staff_reminder or False,
-            'notifyComment': self.notify_comment or False,
-            'date': self.created_at.strftime('%Y-%m-%d') if self.created_at else '',
-        }
+
+def gen_serial_number():
+    """Next sequential ticket number. Retries on unique-constraint races
+    (single gunicorn worker in this app's deployment makes that
+    vanishingly rare, but this keeps it correct either way)."""
+    last = db.session.query(db.func.max(Ticket.serial_number)).scalar()
+    return (last or 0) + 1
+
+
+def gen_tracking_code():
+    """Short random code the requester uses to look their ticket up.
+    Avoids visually-ambiguous characters (0/O, 1/I)."""
+    alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    while True:
+        code = ''.join(secrets.choice(alphabet) for _ in range(7))
+        if not Ticket.query.filter_by(tracking_code=code).first():
+            return code
 
 
 def init_db(app):
-    """Create tables and seed default academic structure if empty."""
+    """Create tables and seed default categories + the first Administrator
+    account if the database is empty."""
     db.create_all()
 
-    # Migration: add new columns to existing tables if they don't exist yet
+    # Lightweight in-place migration for older/partial databases.
     try:
         with db.engine.connect() as conn:
-            for col, coltype in [
-                ('stage_id', 'INTEGER'), ('grade_id', 'INTEGER'),
-                ('section_id', 'INTEGER'), ('period_id', 'INTEGER'),
-                ('trolley_code', 'VARCHAR(50)'), ('stage_name', 'VARCHAR(200)'),
-                ('grade_name', 'VARCHAR(100)'), ('section_name', 'VARCHAR(100)'),
-                ('period_number', 'INTEGER'),
-            ]:
-                conn.exec_driver_sql(f"ALTER TABLE bookings ADD COLUMN IF NOT EXISTS {col} {coltype}")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS stage_id INTEGER")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkout_reminder_sent BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE booking_reminders ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(200)")
-            conn.exec_driver_sql("ALTER TABLE booking_reminders ADD COLUMN IF NOT EXISTS kind VARCHAR(10) DEFAULT 'admin'")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS action_token VARCHAR(43)")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS receipt_printed BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE booking_checkouts ADD COLUMN IF NOT EXISTS notes TEXT")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notify_handover BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notify_new BOOLEAN DEFAULT TRUE")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS new_readonly BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notify_approved BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS grade_id INTEGER")
-            conn.exec_driver_sql("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS section_id INTEGER")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS approved_by VARCHAR(200)")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notify_staff_reminder BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS staff_reminder_sent BOOLEAN DEFAULT FALSE")
-            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancel_reason TEXT")
-            conn.exec_driver_sql("ALTER TABLE contacts ADD COLUMN IF NOT EXISTS notify_comment BOOLEAN DEFAULT FALSE")
-            # Contacts can now repeat the same email across different stages —
-            # drop the old single-column unique constraint if present.
-            try:
-                conn.exec_driver_sql("ALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_email_key")
-            except Exception:
-                pass
+            conn.exec_driver_sql("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS department VARCHAR(200)")
+            conn.exec_driver_sql("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE")
+            conn.exec_driver_sql("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS external BOOLEAN DEFAULT FALSE")
+            conn.exec_driver_sql("ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS staff_id INTEGER")
+            conn.exec_driver_sql("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS priority VARCHAR(10) DEFAULT 'medium'")
+            conn.exec_driver_sql("ALTER TABLE category_items ADD COLUMN IF NOT EXISTS code_en VARCHAR(50)")
+            conn.exec_driver_sql("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE")
+            conn.exec_driver_sql("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN DEFAULT FALSE")
+            # No DEFAULT here on purpose — existing rows land NULL so the
+            # one-time backfill right below can tell "never set" apart from
+            # an Administrator later explicitly switching it back off.
+            conn.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN IF NOT EXISTS can_change_priority BOOLEAN")
+            conn.exec_driver_sql("ALTER TABLE staff_users ADD COLUMN IF NOT EXISTS can_manage_reminders BOOLEAN")
             conn.commit()
     except Exception:
         pass
 
-    if Stage.query.count() == 0:
-        basic = Stage(name_ar='المرحلة الأساسية', name_en='Primary Stage',
-                       trolley_code='TROLLEY-A', active=True, sort_order=1)
-        secondary = Stage(name_ar='المرحلة الثانوية', name_en='Secondary Stage',
-                           trolley_code='TROLLEY-B', active=True, sort_order=2)
-        db.session.add_all([basic, secondary])
-        db.session.flush()
+    # One-time backfill for the two sensitive per-staff permissions above:
+    # staff who already had de-facto access via their role before these
+    # columns existed keep working after the upgrade; every other still-NULL
+    # row (including anyone created fresh after this point) settles to
+    # False. Runs every startup but is a no-op once every row has a real
+    # value — an Administrator's later explicit change is never NULL again,
+    # so it's never touched here.
+    try:
+        StaffUser.query.filter(
+            StaffUser.can_change_priority.is_(None), StaffUser.role.in_([ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR]),
+        ).update({'can_change_priority': True}, synchronize_session=False)
+        StaffUser.query.filter(StaffUser.can_change_priority.is_(None)).update(
+            {'can_change_priority': False}, synchronize_session=False)
+        StaffUser.query.filter(
+            StaffUser.can_manage_reminders.is_(None), StaffUser.role.in_([ROLE_SYSTEM_ADMIN, ROLE_ADMINISTRATOR]),
+        ).update({'can_manage_reminders': True}, synchronize_session=False)
+        StaffUser.query.filter(StaffUser.can_manage_reminders.is_(None)).update(
+            {'can_manage_reminders': False}, synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
-        for i, num in enumerate([5, 6]):
-            db.session.add(Grade(stage_id=basic.id, name_ar=f'الصف {_ordinal_ar_m(num)}',
-                                  name_en=f'Grade {num}', sort_order=i))
-        for i, num in enumerate(range(7, 13)):
-            db.session.add(Grade(stage_id=secondary.id, name_ar=f'الصف {_ordinal_ar_m(num)}',
-                                  name_en=f'Grade {num}', sort_order=i))
+    import os
+    if StaffUser.query.count() == 0:
+        from werkzeug.security import generate_password_hash
+        username = os.environ.get('ADMIN_USER', 'admin')
+        password = os.environ.get('ADMIN_PASS', 'acs2024')
+        db.session.add(StaffUser(
+            username=username,
+            password_hash=generate_password_hash(password),
+            full_name='Administrator',
+            role=ROLE_ADMINISTRATOR,
+            active=True,
+            # The very first (seed) account — give it both sensitive
+            # permissions immediately, or a brand-new install would leave
+            # even the sole Administrator unable to touch Priority or the
+            # reminder settings until... an Administrator enables them.
+            can_change_priority=True,
+            can_manage_reminders=True,
+        ))
         db.session.commit()
 
-        # One default section (أ) per grade — admin can add more from the panel
-        for g in Grade.query.all():
-            db.session.add(Section(grade_id=g.id, name_ar='أ', name_en='A', sort_order=0))
+    if Category.query.count() == 0:
+        defaults = [
+            ('الأجهزة', 'Hardware'),
+            ('البرمجيات', 'Software'),
+            ('الشبكة', 'Network'),
+            ('المنصات التعليمية', 'Platforms'),
+            ('الشاشات', 'Screens'),
+            ('نظام الهاتف', 'Telephone System'),
+        ]
+        for i, (ar, en) in enumerate(defaults):
+            db.session.add(Category(name_ar=ar, name_en=en, active=True, sort_order=i))
         db.session.commit()
-
-    if Period.query.count() == 0:
-        for n in range(1, 9):
-            db.session.add(Period(number=n, label_ar=f'الحصة {_ordinal_ar(n)}', active=True))
-        db.session.commit()
-
-    _seed_grade_period_times()
-
-
-_ORDINALS_AR_F = {  # feminine — used for الحصة (period)
-    1: 'الأولى', 2: 'الثانية', 3: 'الثالثة', 4: 'الرابعة', 5: 'الخامسة',
-    6: 'السادسة', 7: 'السابعة', 8: 'الثامنة', 9: 'التاسعة', 10: 'العاشرة',
-    11: 'الحادية عشرة', 12: 'الثانية عشرة',
-}
-_ORDINALS_AR_M = {  # masculine — used for الصف (grade)
-    1: 'الأول', 2: 'الثاني', 3: 'الثالث', 4: 'الرابع', 5: 'الخامس',
-    6: 'السادس', 7: 'السابع', 8: 'الثامن', 9: 'التاسع', 10: 'العاشر',
-    11: 'الحادي عشر', 12: 'الثاني عشر',
-}
-
-def _ordinal_ar(n):
-    return _ORDINALS_AR_F.get(n, str(n))
-
-def _ordinal_ar_m(n):
-    return _ORDINALS_AR_M.get(n, str(n))
-
-
-# ── One-time seed for the 2026/2027 grade 7-12 bell schedule ───────────────
-# Regular days = Sunday, Monday, Wednesday, Thursday. Tuesday runs a shorter
-# schedule. Friday/Saturday are not school days, so they carry no rows.
-# Python weekday(): Monday=0, Tuesday=1, Wednesday=2, Thursday=3, ..., Sunday=6.
-_REGULAR_WEEKDAYS = [6, 0, 2, 3]   # Sun, Mon, Wed, Thu
-_TUESDAY_WEEKDAY  = [1]
-
-_GRADE_SCHEDULES = {
-    # grade numbers 7, 8, 9 share one timetable; 10, 11, 12 share another;
-    # 5, 6 share a third (no breaks between periods).
-    (7, 8, 9): {
-        'regular': {1: ('08:00', '08:45'), 2: ('08:45', '09:30'), 3: ('09:30', '10:15'),
-                    4: ('10:35', '11:20'), 5: ('11:20', '12:05'), 6: ('12:05', '12:50'),
-                    7: ('13:05', '13:50'), 8: ('13:50', '14:35')},
-        'tuesday': {1: ('08:00', '08:35'), 2: ('08:35', '09:10'), 3: ('09:10', '09:45'),
-                    4: ('10:00', '10:35'), 5: ('10:35', '11:10'), 6: ('11:10', '11:45'),
-                    7: ('12:00', '12:35'), 8: ('12:35', '13:20')},
-    },
-    (10, 11, 12): {
-        'regular': {1: ('08:00', '08:45'), 2: ('08:45', '09:30'), 3: ('09:30', '10:15'),
-                    4: ('10:15', '11:00'), 5: ('11:40', '12:25'), 6: ('12:25', '13:10'),
-                    7: ('13:10', '13:50'), 8: ('13:50', '14:35')},
-        'tuesday': {1: ('08:00', '08:35'), 2: ('08:35', '09:10'), 3: ('09:10', '09:45'),
-                    4: ('09:45', '10:20'), 5: ('10:50', '11:25'), 6: ('11:25', '12:00'),
-                    7: ('12:00', '12:35'), 8: ('12:35', '13:20')},
-    },
-    (5, 6): {
-        'regular': {1: ('08:00', '08:45'), 2: ('08:45', '09:30'), 3: ('09:30', '10:15'),
-                    4: ('10:35', '11:20'), 5: ('11:20', '12:05'), 6: ('12:20', '13:05'),
-                    7: ('13:05', '13:50'), 8: ('13:50', '14:35')},
-        'tuesday': {1: ('08:00', '08:35'), 2: ('08:35', '09:10'), 3: ('09:10', '09:45'),
-                    4: ('10:00', '10:35'), 5: ('10:35', '11:10'), 6: ('11:25', '12:00'),
-                    7: ('12:00', '12:35'), 8: ('12:35', '13:20')},
-    },
-}
-
-
-def _grade_number(g):
-    """Best-effort extraction of the numeric grade (7, 8, 9...) from a Grade
-    row, so the seed can match real grades however they were labeled."""
-    import re
-    for label in (g.name_en, g.name_ar):
-        if not label:
-            continue
-        m = re.search(r'\d+', label)
-        if m:
-            return int(m.group())
-    for num, word in _ORDINALS_AR_M.items():
-        if g.name_ar and word in g.name_ar:
-            return num
-    return None
-
-
-# Bump this whenever a row in _GRADE_SCHEDULES is corrected. A group whose
-# applied version (stored in app_settings) is behind this number gets its
-# rows deleted and reseeded from the dict below on the next deploy — this
-# is what lets a schedule *correction* (not just a first-time seed) reach
-# production. Once a group is caught up to this version, it is left alone
-# again — including any manual edit made from the admin panel — until this
-# number is bumped again for a further correction.
-_SCHEDULE_VERSION = 2  # v2: fixed the grades 5-6 regular-day schedule (breaks restored)
-
-
-def _seed_grade_period_times():
-    """Seed each known grade-group bell schedule, matching existing Grade
-    rows by their numeric label. A group is skipped if its grades can't
-    all be confidently identified (e.g. renamed). Otherwise its rows are
-    (re)written only if its stored schedule version is behind
-    _SCHEDULE_VERSION — first deploy ever, or a schedule correction — so
-    this is safe to re-run on every deploy without clobbering manual
-    admin edits made after a group is caught up."""
-    grades_by_number = {}
-    for g in Grade.query.all():
-        n = _grade_number(g)
-        if n is not None and n not in grades_by_number:
-            grades_by_number[n] = g
-
-    for numbers, schedule in _GRADE_SCHEDULES.items():
-        if not all(n in grades_by_number for n in numbers):
-            continue  # can't confidently match this group — leave for manual entry
-
-        version_key = 'grade_schedule_version_' + '_'.join(str(n) for n in numbers)
-        applied = AppSetting.query.get(version_key)
-        applied_version = int(applied.value) if (applied and applied.value or '').isdigit() else 0
-        if applied_version >= _SCHEDULE_VERSION:
-            continue  # this group is already up to date — don't touch admin-edited data
-
-        group_grade_ids = [grades_by_number[n].id for n in numbers]
-        GradePeriodTime.query.filter(
-            GradePeriodTime.grade_id.in_(group_grade_ids)).delete(synchronize_session=False)
-
-        for n in numbers:
-            grade = grades_by_number[n]
-            for weekday in _REGULAR_WEEKDAYS:
-                for period_number, (start, end) in schedule['regular'].items():
-                    db.session.add(GradePeriodTime(
-                        grade_id=grade.id, weekday=weekday, period_number=period_number,
-                        start_time=start, end_time=end))
-            for weekday in _TUESDAY_WEEKDAY:
-                for period_number, (start, end) in schedule['tuesday'].items():
-                    db.session.add(GradePeriodTime(
-                        grade_id=grade.id, weekday=weekday, period_number=period_number,
-                        start_time=start, end_time=end))
-
-        if applied:
-            applied.value = str(_SCHEDULE_VERSION)
-        else:
-            db.session.add(AppSetting(key=version_key, value=str(_SCHEDULE_VERSION)))
-
-    db.session.commit()
