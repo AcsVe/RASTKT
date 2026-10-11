@@ -43,7 +43,7 @@ kill_my_tunnel() {
     tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF "$key" && kill "$p" 2>/dev/null || true
   done
 }
-other_takeover() { pgrep -f "iaj/standby/phone.sh takeover" >/dev/null 2>&1; }
+other_takeover() { pgrep -f "(iaj|venues)/standby/phone.sh takeover" >/dev/null 2>&1; }
 
 ensure_env() {
   if [ ! -f "$SITE/.env" ]; then
