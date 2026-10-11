@@ -43,6 +43,8 @@ kill_my_tunnel() {
     tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -qF "$key" && kill "$p" 2>/dev/null || true
   done
 }
+neon_on() { grep -q '^NEON_BACKUP_URL=.' "$SITE/.env" 2>/dev/null; }
+ensure_pg8000() { python -c "import pg8000" 2>/dev/null || pip install -q pg8000 >/dev/null 2>&1 || true; }
 other_takeover() { pgrep -f "(iaj|venues)/standby/phone.sh takeover" >/dev/null 2>&1; }
 
 ensure_env() {
@@ -61,7 +63,7 @@ case "$1" in
   setup)
     say "$(T "تثبيت المتطلبات" "Installing requirements")"
     pkg install -y python rclone cloudflared unzip python-cryptography >/dev/null || pkg install -y python rclone cloudflared unzip
-    pip install "Flask==3.0.3" "Flask-SQLAlchemy==3.1.1" "SQLAlchemy==2.0.36" "Werkzeug==3.0.6" "requests" "waitress==3.0.2" tzdata
+    pip install "Flask==3.0.3" "Flask-SQLAlchemy==3.1.1" "SQLAlchemy==2.0.36" "Werkzeug==3.0.6" "requests" "waitress==3.0.2" "pg8000==1.31.5" tzdata
     say "$(T "إشعارات Push (اختياري — إن فشل يعمل النظام بدونها)" "Push notifications (optional - the system works without them)")"
     AIOHTTP_NO_EXTENSIONS=1 pip install "pywebpush==2.5.0" "py-vapid==1.9.0" || echo "$(T "تخطي Push" "Skipping push")"
     say "$(T "تم. الخطوة التالية: bash ~/rastkt/standby/phone.sh configure" "Done. Next: bash ~/rastkt/standby/phone.sh configure")"
@@ -89,7 +91,27 @@ case "$1" in
     mkdir -p "$LOCAL_BK/db"
     rclone copy "$RT_REMOTE/db" "$LOCAL_BK/db" --include "*.db.gz" --max-age 30d --progress
     rclone copy "$RT_REMOTE/uploads" "$LOCAL_BK/uploads" --progress || true
+    if neon_on; then
+      ensure_pg8000
+      say "$(T "جلب أحدث نسخة من Neon أيضاً (تُستخدم الأحدث بين Drive وNeon)" "Also fetching the latest copy from Neon (the newer of Drive/Neon is used)")"
+      (cd "$SITE" && python ops/neon_store.py pull "$LOCAL_BK/db") || say "$(T "تعذّر Neon — أكمل بنسخة Drive" "Neon failed - continuing with the Drive copy")"
+    fi
     cd "$SITE" && python ops/restore.py --latest "$LOCAL_BK" --uploads --yes
+    ;;
+
+  neon)
+    guard; need_code; ensure_env
+    neon_on || die "$(T "لا يوجد رابط Neon — شغّل configure وألصقه عند الطلب" "No Neon link - run configure and paste it when asked")"
+    ensure_pg8000
+    say "$(T "تنزيل أحدث نسخة من Neon وتثبيتها على الهاتف" "Downloading the latest copy from Neon onto the phone")"
+    mkdir -p "$LOCAL_BK/neon"
+    F=$(cd "$SITE" && python ops/neon_store.py pull "$LOCAL_BK/neon" | tail -1)
+    echo "$F"
+    N=$(ls -t "$LOCAL_BK/neon"/*.db.gz 2>/dev/null | head -1)
+    [ -n "$N" ] || die "$(T "لم يُنزَّل شيء" "Nothing was downloaded")"
+    pkill -f "$SITE/serve.py" 2>/dev/null || true
+    cd "$SITE" && python ops/restore.py --file "$N" --yes
+    say "$(T "تم. بيانات Neon على الهاتف الآن — للتشغيل للعامة: زر $L 1" "Done. Neon data is on the phone - to serve it publicly: $L 1")"
     ;;
 
   try)
@@ -106,6 +128,11 @@ case "$1" in
     say "$(T "جلب رمز نفق الهاتف rastkt-standby من Cloudflare (يُحفظ ولا يظهر)" "Fetching the phone tunnel token from Cloudflare (saved, not shown)")"
     (cd "$SITE" && python ops/cf.py token > "$TOKEN_FILE.tmp") && [ -s "$TOKEN_FILE.tmp" ] && mv "$TOKEN_FILE.tmp" "$TOKEN_FILE" && chmod 600 "$TOKEN_FILE" \
       || { rm -f "$TOKEN_FILE.tmp"; die "$(T "تعذّر — شغّل أولاً على الكمبيوتر 1_setup.bat (ينشئ النفق)" "Failed - run 1_setup.bat on the PC first (it creates the tunnel)")"; }
+    if ! neon_on && [ ! -f "$SITE/.neon_skip" ]; then
+      read -r -s -p "$(T "  (اختياري) الصق رابط Neon لهذا النظام — أو Enter للتخطي: " "  (optional) Paste this system's Neon link - or Enter to skip: ")" NU; echo
+      if [ -n "$NU" ]; then echo "NEON_BACKUP_URL=$NU" >> "$SITE/.env"; ensure_pg8000; (cd "$SITE" && python ops/neon_store.py info) || true
+      else touch "$SITE/.neon_skip"; fi
+    fi
     mkdir -p "$HOME/.shortcuts"
     mk() { printf '#!/data/data/com.termux/files/usr/bin/bash\n%s\necho; read -r -p "Enter ↵" _\n' "$2" > "$HOME/.shortcuts/$1"; chmod +x "$HOME/.shortcuts/$1"; }
     mk "TKT 1 - تشغيل طوارئ التذاكر"  "bash ~/rastkt/standby/phone.sh takeover"
@@ -114,6 +141,7 @@ case "$1" in
     mk "TKT 3 - أين يعمل نظام التذاكر" "bash ~/rastkt/standby/phone.sh status"
     mk "TKT 4 - تحديث كود التذاكر" "bash ~/rastkt/standby/phone.sh update-code && bash ~/rastkt/standby/phone.sh configure"
     mk "TKT 5 - نسخ بيانات التذاكر إلى Drive" "bash ~/rastkt/standby/phone.sh backup"
+    mk "TKT 6 - استرجاع من Neon إلى الهاتف" "bash ~/rastkt/standby/phone.sh neon"
     say "$(T "تم. حدّث أداة Termux:Widget لتظهر أزرار TKT" "Done. Refresh the Termux:Widget to see the TKT buttons")"
     cd "$SITE" && python ops/cf.py status || true
     ;;
