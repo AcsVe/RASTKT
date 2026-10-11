@@ -41,6 +41,16 @@ class CF:
         return data.get('result')
 
 
+def probe(host):
+    """يفتح الموقع فعلاً عبر الإنترنت ويعيد رمز الاستجابة (أو None)"""
+    import requests
+    try:
+        return requests.get(f'https://{host}/', timeout=15, allow_redirects=False,
+                            headers={'User-Agent': 'rastkt-status'}).status_code
+    except Exception:
+        return None
+
+
 def up(tun):
     return (tun.get('status') or '').lower() in ('healthy', 'degraded')
 
@@ -171,8 +181,12 @@ def main():
             return
         on_phone = any(r['content'].startswith(t_sb['id']) for r in recs.values())
         print()
-        if up(t_sb if on_phone else t_main):
+        code = probe(hosts[0])
+        if up(t_sb if on_phone else t_main) and code and code < 500:
             print(t('✅ الموقع يعمل.', '✅ The site is up.'))
+        elif up(t_sb if on_phone else t_main):
+            print(t(f'❌ النفق متصل لكن نظام التذاكر نفسه لا يستجيب ({code or "لا رد"}) — متوقف؟ على الكمبيوتر: tkt_on.bat',
+                    f'❌ The tunnel is connected but the ticket system itself does not respond ({code or "no reply"}) - stopped? On the PC: tkt_on.bat'))
         elif on_phone and up(t_main):
             print(t('❌ الموقع متوقف: موجّه للهاتف والهاتف منقطع.\n   الحل الآن: switch_to_server.bat (على الكمبيوتر)',
                     '❌ The site is DOWN: it points to the phone and the phone is offline.\n   Fix now: switch_to_server.bat (on the PC)'))
