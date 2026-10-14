@@ -81,6 +81,16 @@ jobs:
         working-directory: android-app
         run: npx capacitor-assets generate --android --iconBackgroundColor '#1B3358' --iconBackgroundColorDark '#1B3358' --splashBackgroundColor '#1B3358' --splashBackgroundColorDark '#1B3358'
 
+      # capacitor-assets writes the adaptive-icon XMLs pointing at
+      # @mipmap/ic_launcher_background, but only creates a *color* resource
+      # with that name — repoint to @color and use the app's navy.
+      - name: Fix adaptive icon background reference
+        working-directory: android-app/android/app/src/main/res
+        run: |
+          sed -i 's#@mipmap/ic_launcher_background#@color/ic_launcher_background#g' mipmap-anydpi-v26/*.xml
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#1B3358</color>\n</resources>\n' > values/ic_launcher_background.xml
+          cat mipmap-anydpi-v26/ic_launcher.xml values/ic_launcher_background.xml
+
       - name: Sync web assets
         working-directory: android-app
         run: npx cap sync android
