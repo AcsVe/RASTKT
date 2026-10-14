@@ -185,6 +185,16 @@
            title="{{ 'تثبيت التطبيق على الجهاز' if lang == 'ar' else 'Install the app on this device' }}">
           <i class="fas fa-download"></i> {{ 'تثبيت' if lang == 'ar' else 'Install' }}
         </a>
+        {% if config.APK_DOWNLOAD_URL and config.APK_DOWNLOAD_URL != '-' %}
+        <a href="{{ config.APK_DOWNLOAD_URL }}" id="apkBtn" style="display:none" download
+           title="{{ 'تحميل تطبيق أندرويد (APK)' if lang == 'ar' else 'Download the Android app (APK)' }}">
+          <i class="fab fa-android"></i> {{ 'تطبيق أندرويد' if lang == 'ar' else 'Android app' }}
+        </a>
+        <script>
+          // Android browsers only, and never inside the app itself.
+          if (/android/i.test(navigator.userAgent) && !window.Capacitor) document.getElementById('apkBtn').style.display = 'flex';
+        </script>
+        {% endif %}
       </nav>
     </div>
   </div>
