@@ -53,7 +53,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      # The runner image already ships the Android SDK (ANDROID_HOME); the
+      # separate setup-android action's sdkmanager step fails on current
+      # images, so just accept licenses and let Gradle fetch any missing piece.
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Prepare icon sources (from the site's own icon)
         run: |
