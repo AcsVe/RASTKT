@@ -12,12 +12,7 @@ def create_app():
     from datetime import timedelta
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
-    data_dir = os.environ.get('DATA_DIR', '').strip()   # الخادم المحلي/الهاتف: مجلد البيانات (انظر serve.py)
-    if data_dir:
-        db_path = os.path.join(data_dir, 'acs_tickets.db')
-        upload_dir = os.path.join(data_dir, 'uploads')
-        os.makedirs(data_dir, exist_ok=True)
-    elif os.path.isdir('/data'):
+    if os.path.isdir('/data'):
         db_path = '/data/acs_tickets.db'
         upload_dir = '/data/uploads'
     else:
@@ -45,9 +40,6 @@ def create_app():
         'pool_pre_ping': True,
         'pool_recycle': 280,
     }
-    if database_url.startswith('sqlite'):
-        # SQLite على الخادم المحلي: انتظار القفل بدل الخطأ عند تزامن الطلبات
-        app.config['SQLALCHEMY_ENGINE_OPTIONS']['connect_args'] = {'timeout': 30}
     app.config['UPLOAD_FOLDER'] = upload_dir
     app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 
@@ -56,6 +48,9 @@ def create_app():
     app.config['ADMIN_PASS']    = os.environ.get('ADMIN_PASS', 'acs2024')
     app.config['ORG_AR']        = os.environ.get('ORG_AR', 'مدرسة الرائد العربي')
     app.config['ORG_EN']        = os.environ.get('ORG_EN', 'Al-Raed Al-Arabi School')
+    # Where the "Android app" button points (built by .github/workflows/build-apk.yml).
+    # Set APK_DOWNLOAD_URL to override, or to an empty-looking value like "-" to hide the button.
+    app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/latest/download/RASTKT.apk')
     app.config['LOGO_URL']      = os.environ.get('LOGO_URL', '/static/logo.png')
     app.config['ACCENT_COLOR']  = os.environ.get('ACCENT_COLOR', '#EBB37B')
     app.config['BASE_URL']      = os.environ.get('BASE_URL', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
@@ -84,25 +79,11 @@ XEqPZq2IE3k9g455XAokrxI6N2LhLDhtu3SMlEulXPw9IcShiKeKf2xO
     app.config['CRON_SECRET'] = os.environ.get('CRON_SECRET', '')
 
     db.init_app(app)
-    if database_url.startswith('sqlite'):
-        from sqlalchemy import event
-        with app.app_context():
-            @event.listens_for(db.engine, 'connect')
-            def _sqlite_pragmas(dbapi_conn, _rec):
-                cur = dbapi_conn.cursor()
-                cur.execute('PRAGMA journal_mode=WAL')      # قراءة وكتابة بالتوازي
-                cur.execute('PRAGMA synchronous=NORMAL')
-                cur.execute('PRAGMA busy_timeout=30000')
-                cur.close()
     with app.app_context():
         init_db(app)
 
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
-
-    # حماية مصدر الصفحات (تشفير + منع الزر الأيمن والاختصارات) — انظر utils/page_shield.py
-    from utils.page_shield import install as _shield
-    _shield(app)
 
     # Served at the ROOT (not /static/sw.js) so its default scope covers the
     # whole site — a service worker's scope is limited to its own directory
