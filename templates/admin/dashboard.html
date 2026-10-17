@@ -270,6 +270,9 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
     <button id="notifyBellBtn" onclick="requestNotifyPermission()"><i class="fas fa-bell"></i> <span id="sbBellLbl"></span></button>
     <a href="#" onclick="toggleLang();return false"><i class="fas fa-language"></i> <span id="sbLangLbl"></span></a>
     <a href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"><i class="fas fa-download"></i> <span id="sbInstallLbl"></span></a>
+    {% if config.APK_DOWNLOAD_URL and config.APK_DOWNLOAD_URL != '-' %}
+    <a href="{{ config.APK_DOWNLOAD_URL }}" id="apkBtn" style="display:none" download><i class="fab fa-android"></i> <span id="sbApkLbl"></span></a>
+    {% endif %}
     <a href="/admin/logout"><i class="fas fa-sign-out-alt"></i> <span id="sbLogoutLbl"></span></a>
   </div>
 </nav>
@@ -561,7 +564,7 @@ const I18N_EN = {
   'بحث برقم التذكرة، الموضوع، أو اسم المعلم...': 'Search by serial, subject, or teacher name...',
   'كل التصنيفات': 'All Categories', 'كل الموظفين': 'All Staff', 'غير معينة (فلتر)': 'Unassigned only',
   'عرض المؤرشفة': 'Show archived',
-  'تعليقات': 'Comments', 'تعليقات جديدة لم تُفتح بعد': 'New comments — not opened yet',
+  'تطبيق أندرويد (APK)': 'Android app (APK)', 'تعليقات': 'Comments', 'تعليقات جديدة لم تُفتح بعد': 'New comments — not opened yet',
   'الرقم': 'Serial', 'المعلم': 'Teacher', 'التصنيف': 'Category', 'الموضوع': 'Subject',
   'الموظف المسؤول': 'Assignee', 'الحالة': 'Status', 'التاريخ': 'Date', 'إجراءات': 'Actions',
   'عرض': 'View', 'تعيين': 'Assign', 'إغلاق': 'Close', 'إعادة فتح': 'Reopen', 'أرشفة': 'Archive',
@@ -730,6 +733,12 @@ function paintStaticLabels() {
   document.getElementById('sbBellLbl').textContent = t('تفعيل إشعارات التذاكر الجديدة');
   document.getElementById('sbLangLbl').textContent = AR ? 'EN' : 'عربي';
   document.getElementById('sbInstallLbl').textContent = t('تثبيت التطبيق');
+  const apkLbl = document.getElementById('sbApkLbl');
+  if (apkLbl) {
+    apkLbl.textContent = t('تطبيق أندرويد (APK)');
+    // Android browsers only, and never inside the app itself.
+    document.getElementById('apkBtn').style.display = (/android/i.test(navigator.userAgent) && !window.Capacitor) ? 'flex' : 'none';
+  }
   document.getElementById('sbLogoutLbl').textContent = t('خروج');
   document.getElementById('refreshLbl').textContent = t('تحديث');
   document.getElementById('archivedLbl').textContent = t('عرض المؤرشفة');

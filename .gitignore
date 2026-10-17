@@ -1,15 +1,14 @@
-# بيانات محلية — لا تُرفع أبداً إلى GitHub
-.env
-*.db
-*.db-wal
-*.db-shm
-*.sqlite3
-uploads/
-data/
-backups/
-logs/
-venv/
-.venv/
-pyexe.txt
 __pycache__/
 *.pyc
+*.pyo
+.env
+instance/
+acs_tickets.db
+uploads/
+*.db-journal
+.DS_Store
+
+android-app/node_modules/
+android-app/android/
+android-app/capacitor.config.json
+android-app/package-lock.json
