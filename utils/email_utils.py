@@ -365,7 +365,7 @@ def send_ticket_assigned(t):
 def send_ticket_closed(t):
     content_ar = f"""
     <h2 style="color:#27ae60;margin-top:0">✅ تم إغلاق التذكرة</h2>
-    <p>عزيزي/عزيزتي <strong>{t['teacherName']}</strong>، تم إغلاق تذكرة الدعم الفني الخاصة بك.</p>
+    <p>عزيزي <strong>{t['teacherName']}</strong>، تم إغلاق تذكرة الدعم الفني الخاصة بك.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_ar(t)}</table>
     <p style="color:#555">إذا لم تُحل المشكلة بشكل كامل، يمكنك طلب إعادة فتح التذكرة عبر الرد على هذا الإشعار أو بالتواصل مع الدعم الفني.</p>
     {_lookup_link_html(t)}
@@ -384,7 +384,7 @@ def send_ticket_closed(t):
 def send_ticket_reopened(t):
     content_ar = f"""
     <h2 style="color:#e67e22;margin-top:0">🔄 تم إعادة فتح التذكرة</h2>
-    <p>عزيزي/عزيزتي <strong>{t['teacherName']}</strong>، تم إعادة فتح تذكرة الدعم الفني الخاصة بك وهي الآن قيد المتابعة مجدداً.</p>
+    <p>عزيزي <strong>{t['teacherName']}</strong>، تم إعادة فتح تذكرة الدعم الفني الخاصة بك وهي الآن قيد المتابعة مجدداً.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_ar(t, bg='#fef9f0')}</table>
     {_lookup_link_html(t)}
     """
@@ -404,7 +404,7 @@ def send_ticket_merged(t, kept_serial, kept_tracking_code=None):
                                      'Track Ticket #%s Directly' % kept_serial) if kept_tracking_code else ''
     content_ar = f"""
     <h2 style="color:#247680;margin-top:0">🔗 تم دمج التذكرة</h2>
-    <p>عزيزي/عزيزتي <strong>{t['teacherName']}</strong>، تم دمج تذكرتك رقم <strong>#{t['serial']}</strong> مع التذكرة رقم <strong>#{kept_serial}</strong> لأنهما تخصان نفس المشكلة. سيتم متابعة الطلب من خلال التذكرة رقم #{kept_serial}.</p>
+    <p>عزيزي <strong>{t['teacherName']}</strong>، تم دمج تذكرتك رقم <strong>#{t['serial']}</strong> مع التذكرة رقم <strong>#{kept_serial}</strong> لأنهما تخصان نفس المشكلة. سيتم متابعة الطلب من خلال التذكرة رقم #{kept_serial}.</p>
     {lookup_html}
     """
     content_en = f"""
@@ -432,7 +432,7 @@ def send_new_comment_notification(t, comment, to_email, to_name, to_teacher=None
     link_html = _lookup_link_html(t) if to_teacher else _dashboard_link_html()
     content_ar = f"""
     <h2 style="color:#247680;margin-top:0">💬 تعليق جديد على التذكرة #{t['serial']}</h2>
-    <p><strong>{author_ar}</strong> أضاف/ت التعليق التالي:</p>
+    <p><strong>{author_ar}</strong> أضاف التعليق التالي:</p>
     <div style="background:#f0f7f8;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
     {link_html}
     """
@@ -453,7 +453,7 @@ def send_internal_note_notification(t, comment, emails):
     author = comment.get('authorName') or ''
     content_ar = f"""
     <h2 style="color:#6b7c7e;margin-top:0">🔒 ملاحظة داخلية على التذكرة #{t['serial']}</h2>
-    <p><strong>{author}</strong> أضاف/ت ملاحظة داخلية (غير مرئية لمقدم الطلب):</p>
+    <p><strong>{author}</strong> أضاف ملاحظة داخلية (غير مرئية لمقدم الطلب):</p>
     <div style="background:#f5f5f5;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
     {_dashboard_link_html()}
     """
