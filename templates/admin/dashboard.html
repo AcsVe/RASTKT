@@ -526,6 +526,22 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
           <input type="number" id="tickerPulseSpeed" min="0.3" max="10" step="0.1">
         </div>
 
+        <div class="form-grid" style="margin-top:14px">
+          <div class="form-group">
+            <label id="tickerBgColorLbl"></label>
+            <input type="color" id="tickerBgColor" style="height:38px;padding:2px;cursor:pointer" oninput="previewTickerColors()">
+          </div>
+          <div class="form-group">
+            <label><span id="tickerBgOpacityLbl"></span> <b id="tickerBgOpacityVal">0%</b></label>
+            <input type="range" id="tickerBgOpacity" min="0" max="100" step="5" style="width:100%" oninput="previewTickerColors()">
+            <div class="hint" style="font-size:.76rem;color:var(--muted)" id="tickerBgOpacityHint"></div>
+          </div>
+          <div class="form-group">
+            <label id="tickerTextColorLbl"></label>
+            <input type="color" id="tickerTextColor" style="height:38px;padding:2px;cursor:pointer" oninput="previewTickerColors()">
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top:14px;max-width:260px">
           <label id="tickerShadowLbl"></label>
           <select id="tickerShadow">
@@ -644,6 +660,9 @@ const I18N_EN = {
   'يظهر هذا المحتوى فقط عند تصفح الموقع بالإنجليزية — إن تُرك فارغاً يُستخدم المحتوى العربي بدلاً منه.':
     "This shows only when the site is viewed in English — if left empty, the Arabic content is used instead.",
   'سرعة النبض (ثواني لكل ومضة)': 'Pulse Speed (seconds per blink)',
+  'لون خلفية الشريط': 'Ticker background colour', 'شفافية الخلفية:': 'Background opacity:',
+  '0% = شفاف تماماً (كما كان)، 100% = لون كامل': '0% = fully transparent (as before), 100% = solid colour',
+  'لون النص': 'Text colour',
   'ظل النص (لوضوح أفضل)': 'Text Shadow (for better legibility)', 'بدون ظل': 'None', 'ظل خفيف': 'Light', 'ظل قوي': 'Strong',
   'يمكنك تلوين النص، تنسيق الخط، وإضافة روابط — لكل الفقرة أو لجزء محدد منها.':
     'You can color text, format the font, and add links — for the whole paragraph or just a selected part.',
@@ -833,6 +852,10 @@ function paintStaticLabels() {
   document.getElementById('tickerPulseLbl').textContent = t('تأثير النبض (وميض)');
   document.getElementById('tickerPulseSpeedLbl').textContent = t('سرعة النبض (ثواني لكل ومضة)');
   document.getElementById('tickerShadowLbl').textContent = t('ظل النص (لوضوح أفضل)');
+  document.getElementById('tickerBgColorLbl').textContent = t('لون خلفية الشريط');
+  document.getElementById('tickerBgOpacityLbl').textContent = t('شفافية الخلفية:');
+  document.getElementById('tickerBgOpacityHint').textContent = t('0% = شفاف تماماً (كما كان)، 100% = لون كامل');
+  document.getElementById('tickerTextColorLbl').textContent = t('لون النص');
   document.getElementById('tickerShadowNone').textContent = t('بدون ظل');
   document.getElementById('tickerShadowLight').textContent = t('ظل خفيف');
   document.getElementById('tickerShadowStrong').textContent = t('ظل قوي');
@@ -1121,6 +1144,22 @@ async function loadTickerSettings() {
   document.getElementById('tickerPulseSpeed').value = cfg.pulseSeconds || 1.6;
   document.getElementById('tickerPulseSpeedRow').style.display = cfg.pulse ? '' : 'none';
   document.getElementById('tickerShadow').value = cfg.textShadow || 'light';
+  document.getElementById('tickerBgColor').value = cfg.bgColor || '#1B3358';
+  document.getElementById('tickerBgOpacity').value = cfg.bgOpacity || 0;
+  document.getElementById('tickerBgOpacityVal').textContent = (cfg.bgOpacity || 0) + '%';
+  document.getElementById('tickerTextColor').value = cfg.textColor || '#ffffff';
+}
+
+
+// Live look of the bar while the colour / opacity controls move (saved with «حفظ»).
+function previewTickerColors() {
+  const op = parseInt(document.getElementById('tickerBgOpacity').value, 10) || 0;
+  document.getElementById('tickerBgOpacityVal').textContent = op + '%';
+  const bar = document.getElementById('globalTicker');
+  if (!bar) return;
+  const n = parseInt(document.getElementById('tickerBgColor').value.slice(1), 16);
+  bar.style.background = op > 0 ? `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${op / 100})` : '';
+  bar.style.setProperty('--ticker-text', document.getElementById('tickerTextColor').value);
 }
 
 async function saveTickerSettings() {
@@ -1137,6 +1176,9 @@ async function saveTickerSettings() {
     pulse: document.getElementById('tickerPulse').checked,
     pulseSeconds: parseFloat(document.getElementById('tickerPulseSpeed').value) || 1.6,
     textShadow: document.getElementById('tickerShadow').value,
+    bgColor: document.getElementById('tickerBgColor').value,
+    bgOpacity: parseInt(document.getElementById('tickerBgOpacity').value, 10) || 0,
+    textColor: document.getElementById('tickerTextColor').value,
   });
   showToast(t('تم التحديث'));
   // Refresh the live ticker on this page right away — speed/pulse/color
