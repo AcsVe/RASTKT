@@ -683,6 +683,24 @@ def api_get_teachers():
     return jsonify([t.to_dict() for t in teachers])
 
 
+@admin_bp.route('/api/teachers-export.csv')
+@login_required
+def api_teachers_export():
+    """«تصدير المعلمين لنظام الغياب»: the approved roster as CSV (UTF-8, opens in Excel) with the column names
+    the student-absence system (SAS, 8.iajaward.org) understands in «الموظفون ← استيراد»."""
+    import csv
+    import io
+    from flask import Response
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['الاسم', 'البريد الإلكتروني', 'الهاتف', 'المسمى الوظيفي', 'التخصص', 'الحالة', 'المصدر'])
+    for t in Teacher.query.filter(Teacher.external.isnot(True)).order_by(Teacher.name).all():
+        w.writerow([t.name, t.email or '', t.phone or '', 'معلم', t.department or '',
+                    'فعّال' if t.active is not False else 'موقوف', 'نظام التذاكر'])
+    return Response('\ufeff' + buf.getvalue(), content_type='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': 'attachment; filename=teachers-for-SAS.csv'})
+
+
 @admin_bp.route('/api/bulk-add-teachers', methods=['POST'])
 @login_required
 def api_bulk_add_teachers():

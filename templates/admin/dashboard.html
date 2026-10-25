@@ -365,6 +365,11 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
         <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="teachUploadHint"></p>
         <input type="file" id="teacherFile" accept=".csv,.txt" onchange="uploadTeachers(this)">
       </div>
+      <div class="card" id="teacherSasCard">
+        <div class="card-title"><i class="fas fa-file-export"></i> <span id="teachSasTitle"></span></div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="teachSasHint"></p>
+        <a class="btn btn-outline" href="/admin/api/teachers-export.csv"><i class="fas fa-download"></i> <span id="teachSasBtn"></span></a>
+      </div>
       <div class="card">
         <div class="card-title"><i class="fas fa-list"></i> <span id="teacherListTitle"></span></div>
         <div class="filter-bar">
@@ -554,6 +559,9 @@ const ME = {{ me|tojson }};
 let AR = '{{ lang }}' !== 'en';
 
 const I18N_EN = {
+  'تصدير المعلمين لنظام الغياب': 'Export the teachers for SAS',
+  'ملف يُستورد في نظام غياب الطلبة (SAS) من «الموظفون ← إضافة قائمة أو استيراد ملف».': 'A file to import in the student-absence system (8.iajaward.org): Employees → Add a list or import a file.',
+  'تصدير (Excel / CSV)': 'Export (Excel / CSV)',
   'لوحة التحكم': 'Control Panel', 'التذاكر': 'Tickets', 'التصنيفات': 'Categories',
   'المعلمون': 'Teachers', 'الموظفون': 'Staff Accounts', 'الصفحة الرئيسية': 'Home',
   'تفعيل إشعارات التذاكر الجديدة': 'Enable new-ticket notifications',
@@ -766,6 +774,9 @@ function paintStaticLabels() {
   document.getElementById('addTeacherBtn').textContent = t('إضافة');
   document.getElementById('teachUploadTitle').textContent = t('رفع قائمة (CSV/TXT)');
   document.getElementById('teachUploadHint').textContent = t('ملف CSV أو TXT — كل سطر: name,email,phone');
+  document.getElementById('teachSasTitle').textContent = t('تصدير المعلمين لنظام الغياب');
+  document.getElementById('teachSasHint').textContent = t('ملف يُستورد في نظام غياب الطلبة (SAS) من «الموظفون ← إضافة قائمة أو استيراد ملف».');
+  document.getElementById('teachSasBtn').textContent = t('تصدير (Excel / CSV)');
   document.getElementById('teacherListTitle').textContent = t('قائمة المعلمين');
   document.getElementById('teacherSearchBox').placeholder = t('بحث بالاسم أو البريد أو الجوال...');
   document.getElementById('teacherBulkDeleteLbl').textContent = t('حذف المحدد');
