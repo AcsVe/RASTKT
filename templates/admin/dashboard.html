@@ -3,310 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ 'لوحة التحكم' if lang == 'ar' else 'Control Panel' }} — {{ config.ORG_AR }}</title>
+<title>{{ 'لوحة التحكم' if lang == 'ar' else 'Control Panel' }} — {{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</title>
 
 <link rel="manifest" href="/static/manifest-admin.json">
-<meta name="theme-color" content="#1B3358">
-<link rel="icon" href="/static/icon-192.png" type="image/png">
+<meta name="theme-color" content="#0C67EC">
+<link rel="icon" href="/static/brand/system.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ 'إدارة الطلبات' if lang == 'ar' else 'Ticket Admin' }}">
 <meta name="mobile-web-app-capable" content="yes">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<style>
-:root {
-  --primary: #FF5733; --primary-dark: #C43D1F; --primary-light: #FF8563;
-  --secondary: #2E4E7A; --secondary-dark: #1B3358; --secondary-light: #5A7CA8;
-  --accent: {{ config.ACCENT_COLOR }};
-  --bg: #f0f4f5; --white: #fff; --text: #1e2a2b; --muted: #6b7c7e;
-  --border: #d4e4e6; --radius: 12px; --sidebar: 240px;
-  --shadow: 0 2px 12px rgba(255,87,51,.10);
-}
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'Tajawal', sans-serif; color: var(--text); height: 100vh; overflow: hidden;
-  /* Very soft sky-blue glow anchored to the true top of the viewport,
-     fading into the normal page background — admin-only touch. */
-  background: linear-gradient(180deg, #e4f4fb 0%, var(--bg) 480px, var(--bg) 100%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-}
-/* Nothing scrolls at the body level any more — the sidebar and .main are
-   both fixed panes, and .content is the only actual scrolling region
-   (see .main above) — so overflow:hidden here just prevents a pointless
-   second/outer scrollbar from ever appearing. */
-
-/* The ticker must never cover the sidebar — like an Excel frozen column,
-   the sidebar is its own fixed, full-height region, and the ticker (like
-   a frozen header) only ever spans the remaining scrollable area next to
-   it. inset-inline-start automatically respects the current language's
-   direction, same as --sidebar flips side via .sidebar's own logical
-   inset-inline-start. */
-#globalTicker, body #globalTicker { inset-inline-start: var(--sidebar); }
-
-/* Sidebar */
-.sidebar {
-  width: var(--sidebar);
-  background: linear-gradient(180deg, var(--secondary-dark), var(--secondary));
-  color: #fff; display: flex; flex-direction: column;
-  position: fixed; top: 0; inset-inline-start: 0; bottom: 0; z-index: 150;
-  overflow-y: auto;
-}
-.sidebar-logo { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.15); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.sidebar-logo-chip { background: #fff; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; width: 100%; box-sizing: border-box; }
-.sidebar-logo-chip img { height: 40px; max-width: 100%; object-fit: contain; display: block; }
-.sidebar-logo-text { font-size: .8rem; font-weight: 600; opacity: .85; }
-.sidebar-staff { font-size: .72rem; opacity: .7; }
-.sidebar-nav { flex: 1; padding: 6px 0; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 8px 18px; cursor: pointer;
-  font-size: .92rem; font-weight: 600; color: rgba(255,255,255,.8);
-  transition: all .2s; border: none; background: none; width: 100%; text-align: start; font-family: inherit;
-}
-.nav-item:hover, .nav-item.active { background: rgba(255,255,255,.15); color: #fff; }
-.nav-item i { width: 20px; text-align: center; }
-.nav-badge { margin-inline-start: auto; background: var(--accent); color: #1e2a2b; border-radius: 10px; padding: 1px 8px; font-size: .72rem; font-weight: 800; }
-.sidebar-footer { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,.15); display: flex; flex-direction: column; gap: 4px; }
-.sidebar-footer a, .sidebar-footer button {
-  display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,.7);
-  text-decoration: none; font-size: .85rem; font-weight: 600; padding: 6px 0;
-  background: none; border: none; cursor: pointer; font-family: inherit; width: 100%; text-align: start;
-}
-.sidebar-footer a:hover, .sidebar-footer button:hover { color: #fff; }
-.sidebar-footer #notifyBellBtn.active { color: #27ae60; }
-.sidebar-footer #notifyBellBtn.active i { color: #27ae60; }
-
-/* Main */
-/* .main is its own fixed pane next to the sidebar — like Excel's frozen
-   panes, everything here (topbar, ticker's row) stays put, and only
-   .content actually scrolls, so page content can never scroll up behind
-   the fixed ticker no matter how far down the list goes. */
-.main {
-  position: fixed; top: 0; inset-inline-start: var(--sidebar); inset-inline-end: 0; bottom: 0;
-  display: flex; flex-direction: column;
-}
-body.has-ticker .main { top: 38px; }
-.topbar { background: #fff; padding: 14px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.topbar h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
-.topbar-right { display: flex; align-items: center; gap: 10px; }
-.hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--primary); font-size: 1.4rem; padding: 4px 8px; }
-.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 140; }
-.sidebar-overlay.open { display: block; }
-.content { flex: 1; padding: 24px; overflow-y: auto; }
-
-/* Tabs */
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
-
-/* Stats */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.stat-card { background: #fff; border-radius: var(--radius); padding: 18px; text-align: center; box-shadow: var(--shadow); border-top: 4px solid var(--primary); cursor: pointer; }
-.stat-card.accent { border-top-color: var(--accent); }
-.stat-card.green  { border-top-color: #27ae60; }
-.stat-card.red    { border-top-color: #c0392b; }
-.stat-card.orange { border-top-color: #e67e22; }
-.stat-val { font-size: 2rem; font-weight: 800; color: var(--primary); }
-.stat-card.accent .stat-val { color: #a06020; }
-.stat-card.green  .stat-val { color: #27ae60; }
-.stat-card.red    .stat-val { color: #c0392b; }
-.stat-card.orange .stat-val { color: #e67e22; }
-.stat-label { font-size: .8rem; color: var(--muted); font-weight: 600; margin-top: 4px; }
-
-/* Cards */
-.card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 18px; }
-.card-title { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-
-/* Filters */
-.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
-.filter-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; font-size: .82rem; font-weight: 600; color: var(--muted); transition: all .2s; }
-.filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.search-input { padding: 7px 12px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: .88rem; min-width: 200px; }
-select.plain { padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--border); font-family: inherit; font-size: .85rem; }
-
-/* Table — a bounded, self-scrolling pane (not the whole page) so the
-   header row can stay pinned (position: sticky) while scrolling through a
-   long list; border-collapse is "separate" because Safari drops sticky
-   cells' borders under "collapse". */
-.table-wrap { overflow: auto; max-height: 65vh; border-radius: 10px; }
-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .88rem; }
-th {
-  background: #f0f7f8; color: var(--primary); font-weight: 700; padding: 10px 12px; text-align: start;
-  white-space: nowrap; cursor: pointer; position: sticky; top: 0; z-index: 2;
-  box-shadow: inset 0 -1px 0 var(--border);
-}
-td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-tr:not(.row-status):hover td { background: #fafefe; }
-/* Ticket rows: a light status tint across the whole row (not just the
-   badge) so status reads at a glance while scanning the list. */
-tr.row-status { transition: background-color .15s; }
-tr.row-status-open         { background: #fffaf0; }
-tr.row-status-in_progress   { background: #f0f6ff; }
-tr.row-status-waiting       { background: #fff8f2; }
-tr.row-status-closed        { background: #f0faf4; }
-tr.row-status:hover { filter: brightness(.97); }
-.badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 20px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
-.badge-open        { background: #fff3cd; color: #856404; }
-.badge-in_progress  { background: #cfe2ff; color: #0b3d91; }
-.badge-waiting      { background: #ffe5d0; color: #a3540c; }
-.badge-closed       { background: #d1e7dd; color: #0a6640; }
-.badge-role         { background: #eef3f5; color: var(--secondary-dark); }
-.priority-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px; }
-.priority-low .priority-dot    { background: #95a5a6; }
-.priority-medium .priority-dot { background: #3498db; }
-.priority-high .priority-dot   { background: #c0392b; }
-.priority-high { color: #c0392b; font-weight: 800; }
-
-/* Comment indicator — a small 💬 count next to the ticket number so a
-   glance at the list shows which tickets have an active conversation.
-   It pulses when this staff member hasn't opened the ticket since the
-   latest comment came in (tracked per-browser in localStorage, see
-   markCommentsSeen/hasUnseenComments in the script below). */
-.cmt-indicator { display: inline-flex; align-items: center; gap: 3px; font-size: .72rem; font-weight: 700; color: var(--muted); margin-inline-start: 6px; }
-.cmt-indicator.cmt-unseen { color: var(--primary); animation: cmtPulse 1.3s ease-in-out infinite; }
-@keyframes cmtPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .55; } }
-
-/* Actions */
-.btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer; font-family: inherit; font-size: .8rem; font-weight: 600; text-decoration: none; transition: all .2s; white-space: nowrap; margin-inline-end: 3px; }
-.btn-green   { background: #d1e7dd; color: #0a6640; }
-.btn-red     { background: #f8d7da; color: #842029; }
-.btn-orange  { background: #fff3cd; color: #856404; }
-.btn-blue    { background: #cff4fc; color: #055160; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
-.btn-sm { padding: 5px 10px; font-size: .78rem; }
-.btn:hover { filter: brightness(.93); }
-
-/* Forms */
-label { display: block; font-weight: 700; margin-bottom: 5px; font-size: .85rem; }
-.form-group { margin-bottom: 14px; }
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-input[type=text], input[type=email], input[type=password], input[type=tel], input[type=file],
-select, textarea {
-  width: 100%; padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 8px;
-  font-family: inherit; font-size: .88rem; background: #fff; color: var(--text); transition: border-color .2s;
-}
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,87,51,.1); }
-textarea { resize: vertical; min-height: 70px; }
-input[type=checkbox] { width: auto; accent-color: var(--primary); }
-
-/* Modal */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 30px 12px; }
-.modal-overlay.open { display: flex; }
-.modal { background: #fff; border-radius: 16px; padding: 24px; max-width: 640px; width: 100%; box-shadow: 0 12px 50px rgba(0,0,0,.22); }
-.modal-title { font-size: 1.05rem; font-weight: 800; color: var(--primary); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
-.modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }
-
-/* Toast */
-.toast { position: fixed; bottom: 24px; left: 24px; z-index: 9999; background: #1e2a2b; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: .9rem; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,.25); transform: translateY(100px); opacity: 0; transition: all .3s; }
-html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left: auto; right: auto; }
-.toast.show { transform: translateY(0); opacity: 1; }
-
-/* Comments */
-.comment { border-inline-start: 3px solid var(--primary); background: #fdf2ee; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; }
-.comment.internal { border-inline-start-color: #e67e22; background: #fef9f0; }
-.comment .meta { font-size: .7rem; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
-.comment .body { white-space: pre-wrap; font-size: .84rem; }
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 10px 0; font-size: .84rem; }
-.detail-grid .k { color: var(--muted); font-weight: 700; font-size: .72rem; }
-
-@media (max-width: 768px) {
-  :root { --sidebar: 0px; }
-  .sidebar { position: fixed !important; top: 0; inset-inline-start: 0; bottom: 0; width: 82vw !important; max-width: 300px; transform: translateX(105%) !important; transition: transform .28s cubic-bezier(.4,0,.2,1); z-index: 300; }
-  html[dir="ltr"] .sidebar { transform: translateX(-105%) !important; }
-  html[dir="ltr"] .sidebar.open { transform: translateX(0) !important; }
-  .sidebar.open { transform: translateX(0) !important; }
-  .main { max-width: 100vw; }
-  .hamburger { display: inline-flex !important; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  .form-grid { grid-template-columns: 1fr !important; }
-  .content { padding: 12px !important; }
-  .topbar { padding: 10px 14px !important; }
-  .table-wrap table { min-width: 480px; font-size: .8rem; }
-  .stat-card { padding: 14px 10px; }
-  .stat-val { font-size: 1.6rem; }
-  table, thead, tbody, th, td, tr { display: block; }
-  .table-wrap thead { display: none; }
-  /* Cards replace the table here, so the bounded sticky-header scroll
-     pane is undone — let the stacked cards flow with the normal page
-     scroll like before. */
-  /* Mobile still needs horizontal overflow CONTAINED within .table-wrap
-     (cards can be wider than the viewport via the min-width below) — the
-     desktop sticky-header pane uses overflow:auto on both axes, but
-     "visible" here let that overflow escape .table-wrap onto the whole
-     page, which (in RTL) silently auto-scrolled the entire layout
-     sideways and clipped everything's start edge. overflow-x:auto keeps
-     the scroll local to the table again, as it was before the sticky
-     header was added. */
-  .table-wrap { max-height: none; overflow-x: auto; overflow-y: visible; }
-  .table-wrap tbody tr { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; padding: 6px; }
-  .table-wrap td { border: none; padding: 5px 8px; }
-  .table-wrap td:before { content: attr(data-label); font-weight: 800; color: var(--muted); display: inline-block; min-width: 90px; font-size: .7rem; }
-}
-</style>
+<link rel="stylesheet" href="/static/css/app.css?v=2">
+<style>:root{--accent:{{ brand.accent }}}</style>
 </head>
-<body>
+<body class="app">
 {% include "_ticker.html" %}
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-<nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">
-    {% if config.LOGO_URL %}<div class="sidebar-logo-chip"><img src="{{ config.LOGO_URL }}" alt="logo"></div>{% endif %}
-    <div class="sidebar-logo-text" id="sbTitle"></div>
-    <div class="sidebar-staff" id="sbStaff"></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<nav class="sidebar" id="sidebar" aria-label="{{ 'القائمة الرئيسية' if lang == 'ar' else 'Main menu' }}">
+  <div class="side-brand">
+    <img class="brand-logo{{ '' if brand.logo else ' sys-icon' }}" id="sbLogo" src="{{ brand.logo_url }}" alt="">
+    <span class="org" id="sbOrg"></span>
+    <span class="sys" id="sbSys"></span>
   </div>
-  <div class="sidebar-nav">
-    <button class="nav-item active" onclick="showTab('tickets')" data-tab="tickets"><i class="fas fa-ticket-alt"></i> <span id="navTicketsLbl"></span> <span class="nav-badge" id="nbOpen">0</span></button>
-    <button class="nav-item" onclick="showTab('categories')" data-tab="categories" id="navCatBtn"><i class="fas fa-tags"></i> <span id="navCatLbl"></span></button>
-    <button class="nav-item" onclick="showTab('teachers')" data-tab="teachers" id="navTeachBtn"><i class="fas fa-chalkboard-teacher"></i> <span id="navTeachLbl"></span></button>
-    <button class="nav-item" onclick="showTab('staff')" data-tab="staff" id="navStaffBtn" style="display:none"><i class="fas fa-users-cog"></i> <span id="navStaffLbl"></span></button>
-    <button class="nav-item" onclick="showTab('settings')" data-tab="settings" id="navSettingsBtn" style="display:none"><i class="fas fa-cog"></i> <span id="navSettingsLbl"></span></button>
-    <button class="nav-item" onclick="showTab('reports')" data-tab="reports" id="navReportsBtn" style="display:none"><i class="fas fa-chart-bar"></i> <span id="navReportsLbl"></span></button>
-    <button class="nav-item" onclick="showTab('ticker')" data-tab="ticker" id="navTickerBtn" style="display:none"><i class="fas fa-bullhorn"></i> <span id="navTickerLbl"></span></button>
-  </div>
-  <div class="sidebar-footer">
-    <a href="/?lang={{ lang }}" target="_blank"><i class="fas fa-globe"></i> <span id="sbHomeLbl"></span></a>
-    <button id="notifyBellBtn" onclick="requestNotifyPermission()"><i class="fas fa-bell"></i> <span id="sbBellLbl"></span></button>
-    <a href="#" onclick="toggleLang();return false"><i class="fas fa-language"></i> <span id="sbLangLbl"></span></a>
-    <a href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"><i class="fas fa-download"></i> <span id="sbInstallLbl"></span></a>
-    {% if config.APK_DOWNLOAD_URL and config.APK_DOWNLOAD_URL != '-' %}
-    <a href="{{ config.APK_DOWNLOAD_URL }}" id="apkBtn" style="display:none" download><i class="fab fa-android"></i> <span id="sbApkLbl"></span></a>
-    {% endif %}
-    <a href="/admin/logout"><i class="fas fa-sign-out-alt"></i> <span id="sbLogoutLbl"></span></a>
+  <div class="side-nav">
+    <div class="nav-group">
+      <div class="nav-group-title" id="ngDaily"></div>
+      <button class="nav-item active" onclick="showTab('tickets')" data-tab="tickets"><i class="fas fa-ticket"></i> <span id="navTicketsLbl"></span> <span class="nav-badge" id="nbOpen">0</span></button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title" id="ngLists"></div>
+      <button class="nav-item" onclick="showTab('teachers')" data-tab="teachers" id="navTeachBtn"><i class="fas fa-chalkboard-user"></i> <span id="navTeachLbl"></span></button>
+      <button class="nav-item" onclick="showTab('categories')" data-tab="categories" id="navCatBtn"><i class="fas fa-tags"></i> <span id="navCatLbl"></span></button>
+      <button class="nav-item" onclick="showTab('reports')" data-tab="reports" id="navReportsBtn" style="display:none"><i class="fas fa-chart-column"></i> <span id="navReportsLbl"></span></button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title" id="ngAdmin"></div>
+      <button class="nav-item" onclick="showTab('staff')" data-tab="staff" id="navStaffBtn" style="display:none"><i class="fas fa-users-gear"></i> <span id="navStaffLbl"></span></button>
+      <button class="nav-item" onclick="showTab('ticker')" data-tab="ticker" id="navTickerBtn" style="display:none"><i class="fas fa-bullhorn"></i> <span id="navTickerLbl"></span></button>
+      <button class="nav-item" onclick="showTab('settings')" data-tab="settings" id="navSettingsBtn" style="display:none"><i class="fas fa-gear"></i> <span id="navSettingsLbl"></span></button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title" id="ngApp"></div>
+      <a class="nav-item" href="/?lang={{ lang }}" target="_blank" rel="noopener" id="sbHomeLink"><i class="fas fa-globe"></i> <span id="sbHomeLbl"></span></a>
+      <button class="nav-item" id="notifyBellBtn" onclick="requestNotifyPermission()"><i class="fas fa-bell"></i> <span id="sbBellLbl"></span></button>
+      <a class="nav-item" href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"><i class="fas fa-download"></i> <span id="sbInstallLbl"></span></a>
+      {% if config.APK_DOWNLOAD_URL and config.APK_DOWNLOAD_URL != '-' %}
+      <a class="nav-item" href="{{ config.APK_DOWNLOAD_URL }}" id="apkBtn" style="display:none" download><i class="fab fa-android"></i> <span id="sbApkLbl"></span></a>
+      {% endif %}
+    </div>
   </div>
 </nav>
 
 <div class="main">
-  <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <h1 id="pageTitle"></h1>
+  <header class="topbar">
+    <button class="icon-btn nav-toggle" type="button" onclick="toggleSidebar()" aria-controls="sidebar" id="navToggleBtn"><i class="fas fa-bars" aria-hidden="true"></i></button>
+    <h1 class="page-title" id="pageTitle"></h1>
+    <div class="top-actions">
+      <span class="top-clock" id="clockEl"></span>
+      <button class="icon-btn" type="button" onclick="refreshAll()" id="refreshBtn"><i class="fas fa-rotate" aria-hidden="true"></i></button>
+      <button class="lang-switch" type="button" onclick="toggleLang()" id="langPill"></button>
+      <details class="user-menu" id="userMenu">
+        <summary><span class="avatar" aria-hidden="true" id="umAvatar"></span><span class="uname" id="umName"></span><i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
+        <div class="menu">
+          <div class="menu-head"><b id="umHeadName"></b><small id="umRole"></small></div>
+          <button type="button" onclick="openPasswordModal()"><i class="fas fa-key" aria-hidden="true"></i> <span id="umPwLbl"></span></button>
+          <a href="/admin/logout" class="signout"><i class="fas fa-right-from-bracket" aria-hidden="true"></i> <span id="sbLogoutLbl"></span></a>
+        </div>
+      </details>
     </div>
-    <div class="topbar-right">
-      <button class="btn btn-outline btn-sm" onclick="refreshAll()"><i class="fas fa-sync"></i> <span id="refreshLbl"></span></button>
-      <span style="font-size:.85rem;color:var(--muted)" id="clockEl"></span>
-    </div>
-  </div>
+  </header>
 
   <div class="content">
 
     <!-- ── TICKETS TAB ── -->
     <div class="tab-panel active" id="tab-tickets">
-      <div class="stats-grid" id="statCards"></div>
+      <div class="kpis" id="statCards"></div>
       <div class="card">
         <div class="filter-bar">
-          <input type="text" class="search-input" id="searchBox" oninput="renderTickets()" placeholder="">
+          <input type="search" class="search-input" id="searchBox" oninput="renderTickets()" placeholder="">
           <select class="plain" id="filterCategory" onchange="loadTickets()"></select>
           <select class="plain" id="filterAssignee" onchange="loadTickets()" style="display:none"></select>
           <select class="plain" id="filterPriority" onchange="loadTickets()"></select>
-          <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:600;font-size:.85rem">
+          <select class="plain" id="filterReminder" onchange="renderTickets()"></select>
+          <label class="check-inline">
             <input type="checkbox" id="filterArchived" onchange="loadTickets()"> <span id="archivedLbl"></span>
           </label>
-          <select class="plain" id="filterReminder" onchange="renderTickets()"></select>
         </div>
-        <div class="filter-bar" id="bulkReminderBar" style="display:none;align-items:center">
-          <span id="bulkSelectedLbl" style="font-weight:700;font-size:.85rem"></span>
+        <div class="filter-bar" id="bulkReminderBar" style="display:none">
+          <span id="bulkSelectedLbl" style="font-weight:800;font-size:.86rem"></span>
           <button class="btn btn-outline btn-sm" onclick="bulkSetReminder(true)"><i class="fas fa-bell"></i> <span id="bulkEnableLbl"></span></button>
           <button class="btn btn-outline btn-sm" onclick="bulkSetReminder(false)"><i class="fas fa-bell-slash"></i> <span id="bulkDisableLbl"></span></button>
         </div>
@@ -336,14 +124,14 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
       <div class="card">
         <div class="card-title"><i class="fas fa-plus"></i> <span id="addCatTitle"></span></div>
         <div class="form-grid">
-          <div class="form-group"><label id="lblCatAr"></label><input type="text" id="newCatAr"></div>
-          <div class="form-group"><label id="lblCatEn"></label><input type="text" id="newCatEn"></div>
+          <div class="form-group"><label id="lblCatAr" for="newCatAr"></label><input type="text" id="newCatAr"></div>
+          <div class="form-group"><label id="lblCatEn" for="newCatEn"></label><input type="text" id="newCatEn" dir="ltr"></div>
         </div>
         <button class="btn btn-primary" onclick="addCategory()"><i class="fas fa-plus"></i> <span id="addCatBtn"></span></button>
       </div>
       <div class="card">
         <div class="card-title"><i class="fas fa-upload"></i> <span id="catUploadTitle"></span></div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="catUploadHint"></p>
+        <p class="hint" style="margin:0 0 10px" id="catUploadHint"></p>
         <input type="file" id="catFile" accept=".csv,.txt" onchange="uploadCategories(this)">
       </div>
       <div id="categoriesList"></div>
@@ -352,36 +140,36 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
     <!-- ── TEACHERS TAB ── -->
     <div class="tab-panel" id="tab-teachers">
       <div class="card" id="addTeacherCard">
-        <div class="card-title"><i class="fas fa-chalkboard-teacher"></i> <span id="addTeacherTitle"></span></div>
+        <div class="card-title"><i class="fas fa-chalkboard-user"></i> <span id="addTeacherTitle"></span></div>
         <div class="form-grid">
-          <div class="form-group"><label id="lblTName"></label><input type="text" id="newTeacherName"></div>
-          <div class="form-group"><label id="lblTEmail"></label><input type="email" id="newTeacherEmail" dir="ltr"></div>
-          <div class="form-group"><label id="lblTPhone"></label><input type="tel" id="newTeacherPhone" dir="ltr"></div>
+          <div class="form-group"><label id="lblTName" for="newTeacherName"></label><input type="text" id="newTeacherName"></div>
+          <div class="form-group"><label id="lblTEmail" for="newTeacherEmail"></label><input type="email" id="newTeacherEmail" dir="ltr"></div>
+          <div class="form-group"><label id="lblTPhone" for="newTeacherPhone"></label><input type="tel" id="newTeacherPhone" dir="ltr"></div>
         </div>
         <button class="btn btn-primary" onclick="addTeacher()"><i class="fas fa-plus"></i> <span id="addTeacherBtn"></span></button>
       </div>
       <div class="card" id="teacherUploadCard">
         <div class="card-title"><i class="fas fa-upload"></i> <span id="teachUploadTitle"></span></div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="teachUploadHint"></p>
+        <p class="hint" style="margin:0 0 10px" id="teachUploadHint"></p>
         <input type="file" id="teacherFile" accept=".csv,.txt" onchange="uploadTeachers(this)">
       </div>
       <div class="card" id="teacherSasCard">
         <div class="card-title"><i class="fas fa-file-export"></i> <span id="teachSasTitle"></span></div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:10px" id="teachSasHint"></p>
+        <p class="hint" style="margin:0 0 10px" id="teachSasHint"></p>
         <a class="btn btn-outline" href="/admin/api/teachers-export.csv"><i class="fas fa-download"></i> <span id="teachSasBtn"></span></a>
       </div>
       <div class="card">
         <div class="card-title"><i class="fas fa-list"></i> <span id="teacherListTitle"></span></div>
         <div class="filter-bar">
-          <input type="text" class="search-input" id="teacherSearchBox" oninput="renderTeachers()" placeholder="">
-          <span id="teacherSelCount" style="font-size:.82rem;color:var(--muted)"></span>
+          <input type="search" class="search-input" id="teacherSearchBox" oninput="renderTeachers()" placeholder="">
+          <span id="teacherSelCount" style="font-size:.84rem;color:var(--muted)"></span>
           <button class="btn btn-red btn-sm" id="teacherBulkDeleteBtn" onclick="bulkDeleteTeachers()" style="display:none">
             <i class="fas fa-trash"></i> <span id="teacherBulkDeleteLbl"></span>
           </button>
         </div>
         <div class="table-wrap">
         <table><thead><tr>
-          <th><input type="checkbox" id="teacherSelectAll" onchange="toggleAllTeachers(this)"></th>
+          <th style="width:34px"><input type="checkbox" id="teacherSelectAll" onchange="toggleAllTeachers(this)"></th>
           <th id="thTName"></th><th id="thTEmail"></th><th id="thTPhone"></th><th id="thTActive"></th><th id="thTActions"></th>
         </tr></thead><tbody id="teachersBody"></tbody></table>
         </div>
@@ -393,9 +181,9 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
       <div class="card" id="addStaffCard">
         <div class="card-title"><i class="fas fa-user-plus"></i> <span id="addStaffTitle"></span></div>
         <div class="form-grid">
-          <div class="form-group"><input type="text" id="newStaffUsername"></div>
+          <div class="form-group"><input type="text" id="newStaffUsername" dir="ltr"></div>
           <div class="form-group"><input type="text" id="newStaffFullName"></div>
-          <div class="form-group"><input type="email" id="newStaffEmail"></div>
+          <div class="form-group"><input type="email" id="newStaffEmail" dir="ltr"></div>
           <div class="form-group"><input type="password" id="newStaffPassword"></div>
           <div class="form-group"><select id="newStaffRole"></select></div>
         </div>
@@ -414,27 +202,57 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
     <!-- ── SETTINGS TAB (System Admin & Administrator) ── -->
     <div class="tab-panel" id="tab-settings">
       <div class="card">
+        <div class="card-title"><i class="fas fa-building"></i> <span id="idTitle"></span></div>
+        <form id="brandForm" onsubmit="saveBranding(event)">
+          <div class="form-grid">
+            <div class="form-group"><label for="brandOrgAr" id="idOrgArLbl"></label><input type="text" id="brandOrgAr" name="orgAr" required maxlength="200">
+              <p class="hint" id="idOrgArHint"></p></div>
+            <div class="form-group"><label for="brandOrgEn" id="idOrgEnLbl"></label><input type="text" id="brandOrgEn" name="orgEn" dir="ltr" maxlength="200"></div>
+            <div class="form-group"><label for="brandAccent" id="idAccentLbl"></label><input type="color" id="brandAccent" name="accent">
+              <p class="hint"><span id="idAccentHint"></span> <span class="mono">#0C67EC</span></p></div>
+          </div>
+          <div class="form-group">
+            <label for="brandLogo" id="idLogoLbl"></label>
+            <div class="logo-pick">
+              <img id="brandLogoPreview" src="{{ brand.logo_url }}" alt="" class="{{ '' if brand.logo else 'sys-icon' }}">
+              <div>
+                <input type="file" id="brandLogo" name="logo" accept="image/png,image/jpeg,image/webp">
+                <label class="check-inline" id="removeLogoRow" style="margin-top:8px;{{ '' if brand.logo else 'display:none' }}">
+                  <input type="checkbox" id="brandRemoveLogo" name="removeLogo" value="1"> <span id="idRemoveLogoLbl"></span>
+                </label>
+              </div>
+            </div>
+            <p class="hint" id="idLogoHint"></p>
+          </div>
+          <button class="btn btn-primary" type="submit"><i class="fas fa-floppy-disk"></i> <span id="idSaveLbl"></span></button>
+        </form>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-envelope"></i> <span id="mailTitle"></span></div>
+        <div class="graph-status" id="graphStatus"></div>
+      </div>
+      <div class="card">
         <div class="card-title"><i class="fas fa-user-clock"></i> <span id="extSubTitle"></span></div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px" id="extSubHint"></p>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700">
+        <p class="hint" style="margin:0 0 12px" id="extSubHint"></p>
+        <label class="check-inline">
           <input type="checkbox" id="allowExternalToggle" onchange="onToggleExternal(this)">
           <span id="extSubToggleLbl"></span>
         </label>
       </div>
       <div class="card">
         <div class="card-title"><i class="fas fa-bell"></i> <span id="reminderCardTitle"></span></div>
-        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px" id="reminderHint"></p>
-        <div id="reminderLockedNote" style="display:none;background:#fdf1e3;color:#b9770e;border-radius:8px;padding:10px 14px;font-size:.85rem;font-weight:600"></div>
+        <p class="hint" style="margin:0 0 12px" id="reminderHint"></p>
+        <div id="reminderLockedNote" class="note-box warn" style="display:none;font-weight:600"></div>
         <div id="reminderControlsWrap">
-          <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:12px">
+          <label class="check-inline" style="margin-bottom:12px">
             <input type="checkbox" id="reminderEnabled">
             <span id="reminderEnabledLbl"></span>
           </label>
           <div class="form-group" style="max-width:220px">
-            <label id="reminderHoursLbl"></label>
+            <label id="reminderHoursLbl" for="reminderHours"></label>
             <input type="number" id="reminderHours" min="1" max="720" step="1">
           </div>
-          <button class="btn btn-primary" onclick="saveReminderSettings()"><i class="fas fa-save"></i> <span id="reminderSaveLbl"></span></button>
+          <button class="btn btn-primary" onclick="saveReminderSettings()"><i class="fas fa-floppy-disk"></i> <span id="reminderSaveLbl"></span></button>
           <button class="btn btn-outline" onclick="checkRemindersNow()"><i class="fas fa-play"></i> <span id="reminderCheckNowLbl"></span></button>
         </div>
       </div>
@@ -444,26 +262,28 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
     <div class="tab-panel" id="tab-reports">
       <div class="card">
         <div class="card-title"><i class="fas fa-filter"></i> <span id="reportsFiltersTitle"></span></div>
-        <div class="filter-bar" style="flex-wrap:wrap">
-          <div class="form-group" style="margin:0"><label id="reportsFromLbl" style="margin:0 0 4px"></label><input type="date" id="reportsFrom" style="width:auto"></div>
-          <div class="form-group" style="margin:0"><label id="reportsToLbl" style="margin:0 0 4px"></label><input type="date" id="reportsTo" style="width:auto"></div>
+        <div class="form-grid">
+          <div class="form-group" style="margin:0"><label id="reportsFromLbl" for="reportsFrom"></label><input type="date" id="reportsFrom"></div>
+          <div class="form-group" style="margin:0"><label id="reportsToLbl" for="reportsTo"></label><input type="date" id="reportsTo"></div>
+        </div>
+        <div class="filter-bar" style="margin-top:12px">
           <select class="plain" id="reportsCategory"></select>
           <select class="plain" id="reportsStatus"></select>
           <select class="plain" id="reportsPriority"></select>
         </div>
-        <div class="filter-bar" style="margin-top:8px">
-          <button class="btn btn-outline btn-sm" onclick="setReportsQuickRange('month')" id="qrThisMonth"></button>
-          <button class="btn btn-outline btn-sm" onclick="setReportsQuickRange('lastMonth')" id="qrLastMonth"></button>
-          <button class="btn btn-outline btn-sm" onclick="setReportsQuickRange('90')" id="qrLast90"></button>
-          <button class="btn btn-outline btn-sm" onclick="setReportsQuickRange('')" id="qrAll"></button>
+        <div class="filter-bar">
+          <button class="filter-btn" onclick="setReportsQuickRange('month')" id="qrThisMonth"></button>
+          <button class="filter-btn" onclick="setReportsQuickRange('lastMonth')" id="qrLastMonth"></button>
+          <button class="filter-btn" onclick="setReportsQuickRange('90')" id="qrLast90"></button>
+          <button class="filter-btn" onclick="setReportsQuickRange('')" id="qrAll"></button>
         </div>
-        <div class="filter-bar" style="margin-top:8px">
-          <button class="btn btn-primary btn-sm" onclick="loadReports()"><i class="fas fa-sync"></i> <span id="reportsGenerateLbl"></span></button>
+        <div class="filter-bar" style="margin-bottom:0">
+          <button class="btn btn-primary btn-sm" onclick="loadReports()"><i class="fas fa-rotate"></i> <span id="reportsGenerateLbl"></span></button>
           <button class="btn btn-outline btn-sm" onclick="printReports()"><i class="fas fa-print"></i> <span id="reportsPrintLbl"></span></button>
         </div>
       </div>
 
-      <div class="stats-grid" id="reportsOverallCards"></div>
+      <div class="kpis" id="reportsOverallCards"></div>
 
       <div class="card">
         <div class="card-title"><i class="fas fa-user-check"></i> <span id="reportsByStaffTitle"></span></div>
@@ -476,74 +296,74 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
     <div class="tab-panel" id="tab-ticker">
       <div class="card">
         <div class="card-title"><i class="fas fa-bullhorn"></i> <span id="tickerCardTitle"></span></div>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:14px">
+        <label class="check-inline" style="margin-bottom:14px">
           <input type="checkbox" id="tickerEnabled">
           <span id="tickerEnabledLbl"></span>
         </label>
 
         <label id="tickerContentLbl"></label>
         <div id="tickerQuill" style="background:#fff;min-height:120px"></div>
-        <div class="hint" style="font-size:.78rem;color:var(--muted);margin-top:6px" id="tickerContentHint"></div>
+        <div class="hint" id="tickerContentHint"></div>
 
         <label id="tickerContentEnLbl" style="margin-top:16px"></label>
         <div id="tickerQuillEn" style="background:#fff;min-height:120px" dir="ltr"></div>
-        <div class="hint" style="font-size:.78rem;color:var(--muted);margin-top:6px" id="tickerContentEnHint"></div>
+        <div class="hint" id="tickerContentEnHint"></div>
 
         <div class="form-grid" style="margin-top:16px">
           <div class="form-group">
-            <label id="tickerSpeedLbl"></label>
+            <label id="tickerSpeedLbl" for="tickerSpeed"></label>
             <input type="number" id="tickerSpeed" min="5" max="180" step="1">
-            <div class="hint" style="font-size:.76rem;color:var(--muted)" id="tickerSpeedHint"></div>
+            <div class="hint" id="tickerSpeedHint"></div>
           </div>
           <div class="form-group">
-            <label id="tickerRssLbl"></label>
+            <label id="tickerRssLbl" for="tickerRssUrl"></label>
             <input type="text" id="tickerRssUrl" dir="ltr" placeholder="https://example.com/feed.xml">
           </div>
           <div class="form-group">
-            <label id="tickerRssColorLbl"></label>
-            <input type="color" id="tickerRssColor" style="height:38px;padding:2px;cursor:pointer">
+            <label id="tickerRssColorLbl" for="tickerRssColor"></label>
+            <input type="color" id="tickerRssColor">
           </div>
           <div class="form-group">
-            <label id="tickerRssSizeLbl"></label>
+            <label id="tickerRssSizeLbl" for="tickerRssFontSize"></label>
             <input type="number" id="tickerRssFontSize" min="10" max="40" step="1">
           </div>
         </div>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+        <label class="check-inline" style="margin-top:10px">
           <input type="checkbox" id="tickerRssBold">
           <span id="tickerRssBoldLbl"></span>
         </label>
 
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+        <label class="check-inline" style="margin-top:10px">
           <input type="checkbox" id="tickerLogoBetween">
           <span id="tickerLogoLbl"></span>
         </label>
-        <label style="display:flex;align-items:center;gap:10px;font-weight:700;margin-top:10px">
+        <label class="check-inline" style="margin-top:10px">
           <input type="checkbox" id="tickerPulse" onchange="document.getElementById('tickerPulseSpeedRow').style.display = this.checked ? '' : 'none'">
           <span id="tickerPulseLbl"></span>
         </label>
         <div class="form-group" id="tickerPulseSpeedRow" style="display:none;margin-top:8px;max-width:260px">
-          <label id="tickerPulseSpeedLbl"></label>
+          <label id="tickerPulseSpeedLbl" for="tickerPulseSpeed"></label>
           <input type="number" id="tickerPulseSpeed" min="0.3" max="10" step="0.1">
         </div>
 
         <div class="form-grid" style="margin-top:14px">
           <div class="form-group">
-            <label id="tickerBgColorLbl"></label>
-            <input type="color" id="tickerBgColor" style="height:38px;padding:2px;cursor:pointer" oninput="previewTickerColors()">
+            <label id="tickerBgColorLbl" for="tickerBgColor"></label>
+            <input type="color" id="tickerBgColor" oninput="previewTickerColors()">
           </div>
           <div class="form-group">
-            <label><span id="tickerBgOpacityLbl"></span> <b id="tickerBgOpacityVal">0%</b></label>
+            <label for="tickerBgOpacity"><span id="tickerBgOpacityLbl"></span> <b id="tickerBgOpacityVal">0%</b></label>
             <input type="range" id="tickerBgOpacity" min="0" max="100" step="5" style="width:100%" oninput="previewTickerColors()">
-            <div class="hint" style="font-size:.76rem;color:var(--muted)" id="tickerBgOpacityHint"></div>
+            <div class="hint" id="tickerBgOpacityHint"></div>
           </div>
           <div class="form-group">
-            <label id="tickerTextColorLbl"></label>
-            <input type="color" id="tickerTextColor" style="height:38px;padding:2px;cursor:pointer" oninput="previewTickerColors()">
+            <label id="tickerTextColorLbl" for="tickerTextColor"></label>
+            <input type="color" id="tickerTextColor" oninput="previewTickerColors()">
           </div>
         </div>
 
         <div class="form-group" style="margin-top:14px;max-width:260px">
-          <label id="tickerShadowLbl"></label>
+          <label id="tickerShadowLbl" for="tickerShadow"></label>
           <select id="tickerShadow">
             <option value="none" id="tickerShadowNone"></option>
             <option value="light" id="tickerShadowLight"></option>
@@ -552,7 +372,7 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
         </div>
 
         <button class="btn btn-primary" style="margin-top:18px" onclick="saveTickerSettings()">
-          <i class="fas fa-save"></i> <span id="tickerSaveLbl"></span>
+          <i class="fas fa-floppy-disk"></i> <span id="tickerSaveLbl"></span>
         </button>
         <a class="btn btn-outline" style="margin-top:18px" href="/" target="_blank">
           <i class="fas fa-eye"></i> <span id="tickerPreviewLbl"></span>
@@ -567,7 +387,24 @@ html[dir="ltr"] .toast, html[dir="rtl"] .toast { inset-inline-start: 24px; left:
 <div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()"><div class="modal" id="detailModalBody"></div></div>
 <!-- Staff account edit modal -->
 <div class="modal-overlay" id="staffModal" onclick="if(event.target===this) closeStaffModal()"><div class="modal" id="staffModalBody"></div></div>
-<div class="toast" id="toast"></div>
+<!-- Change my password -->
+<div class="modal-overlay" id="pwModal" onclick="if(event.target===this) closePasswordModal()"><div class="modal narrow">
+  <div class="modal-title"><span id="pwTitle"></span>
+    <button class="modal-close" type="button" onclick="closePasswordModal()" id="pwCloseBtn"><i class="fas fa-xmark"></i></button></div>
+  <form onsubmit="savePassword(event)">
+    <div class="form-group"><label for="pwCurrent" id="pwCurrentLbl"></label>
+      <div class="input-group"><i class="fas fa-lock" aria-hidden="true"></i><input type="password" id="pwCurrent" class="has-eye" autocomplete="current-password" required>
+        <button type="button" class="eye" data-eye="pwCurrent"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
+    <div class="form-group"><label for="pwNew" id="pwNewLbl"></label>
+      <div class="input-group"><i class="fas fa-key" aria-hidden="true"></i><input type="password" id="pwNew" class="has-eye" autocomplete="new-password" minlength="6" required>
+        <button type="button" class="eye" data-eye="pwNew"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
+    <div class="form-group"><label for="pwConfirm" id="pwConfirmLbl"></label>
+      <div class="input-group"><i class="fas fa-key" aria-hidden="true"></i><input type="password" id="pwConfirm" class="has-eye" autocomplete="new-password" minlength="6" required>
+        <button type="button" class="eye" data-eye="pwConfirm"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
+    <button class="btn btn-primary" type="submit" style="width:100%"><i class="fas fa-floppy-disk"></i> <span id="pwSaveLbl"></span></button>
+  </form>
+</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 <script>
@@ -575,6 +412,19 @@ const ME = {{ me|tojson }};
 let AR = '{{ lang }}' !== 'en';
 
 const I18N_EN = {
+  'العمل اليومي': 'Daily work', 'القوائم والتقارير': 'Lists and reports', 'الإدارة': 'Administration', 'التطبيق': 'App',
+  'نظام طلبات الدعم الفني': 'IT Support Requests', 'صفحة تقديم الطلبات': 'Request page',
+  'القائمة': 'Menu', 'تغيير كلمة المرور': 'Change password', 'تسجيل الخروج': 'Sign out',
+  'كلمة المرور الحالية': 'Current password', 'كلمة المرور الجديدة': 'New password', 'تأكيد كلمة المرور الجديدة': 'Confirm the new password',
+  'كلمتا المرور غير متطابقتين': 'The two passwords do not match', 'تم تغيير كلمة المرور': 'The password was changed',
+  'إظهار كلمة المرور': 'Show password',
+  'الهوية': 'Identity', 'اسم المؤسسة بالعربية': 'Organization name (Arabic)', 'اسم المؤسسة بالإنجليزية': 'Organization name (English)',
+  'الاسم الطويل يظهر تحت الشعار على عدة أسطر.': 'A long name wraps under the logo on several lines.',
+  'اللون الأساسي': 'Main colour', 'الافتراضي:': 'Default:', 'الشعار': 'Logo', 'إزالة الشعار': 'Remove the logo',
+  'إلى أن يُرفع شعار تظهر أيقونة النظام. PNG أو JPG أو WEBP.': 'Until a logo is uploaded, the system icon is shown. PNG, JPG or WEBP.',
+  'تم حفظ الإعدادات': 'Settings saved',
+  'البريد': 'Email', 'مضبوط': 'Configured', 'غير مضبوط': 'Not configured', 'المرسل:': 'Sender:',
+  'تُضبط هذه القيم في ملف ‎.env عند التثبيت (‎1_setup.bat‎) ولا تُعرض هنا.': 'These values are set in the .env file at installation (1_setup.bat) and are not shown here.',
   'تصدير المعلمين لنظام الغياب': 'Export the teachers for SAS',
   'ملف يُستورد في نظام غياب الطلبة (SAS) من «الموظفون ← إضافة قائمة أو استيراد ملف».': 'A file to import in the student-absence system (8.iajaward.org): Employees → Add a list or import a file.',
   'تصدير (Excel / CSV)': 'Export (Excel / CSV)',
@@ -704,7 +554,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'
 function showToast(msg, color) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.style.background = color || '#1e2a2b';
+  el.style.background = color || '#0f2a52';
   el.classList.add('show');
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
@@ -736,6 +586,92 @@ function closeSidebar() {
   if (ticker) ticker.style.visibility = '';
 }
 
+// User menu: closes on a click outside it or on Esc. Password fields: the show/hide eye.
+document.addEventListener('click', e => {
+  document.querySelectorAll('details.user-menu[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); });
+  const eye = e.target.closest('[data-eye]');
+  if (eye) {
+    const input = document.getElementById(eye.getAttribute('data-eye'));
+    if (!input) return;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    eye.setAttribute('aria-pressed', show ? 'true' : 'false');
+    const i = eye.querySelector('i');
+    if (i) { i.classList.toggle('fa-eye', !show); i.classList.toggle('fa-eye-slash', show); }
+  }
+});
+
+// ── Identity: organization name under the logo, logo (or the system icon) ──
+let BRAND = {{ {'orgAr': brand.org_ar, 'orgEn': brand.org_en, 'accent': brand.accent, 'logo': brand.logo, 'logoUrl': brand.logo_url}|tojson }};
+let GRAPH = null;
+function paintBrand() {
+  const org = AR ? BRAND.orgAr : (BRAND.orgEn || BRAND.orgAr);
+  const el = document.getElementById('sbOrg');
+  el.textContent = org; el.title = org;
+  const logo = document.getElementById('sbLogo');
+  logo.src = BRAND.logoUrl;
+  logo.classList.toggle('sys-icon', !BRAND.logo);
+  document.documentElement.style.setProperty('--accent', BRAND.accent);
+}
+function fillBrandForm() {
+  document.getElementById('brandOrgAr').value = BRAND.orgAr || '';
+  document.getElementById('brandOrgEn').value = BRAND.orgEn || '';
+  document.getElementById('brandAccent').value = BRAND.accent || '#0C67EC';
+  const prev = document.getElementById('brandLogoPreview');
+  prev.src = BRAND.logoUrl; prev.classList.toggle('sys-icon', !BRAND.logo);
+  document.getElementById('brandLogo').value = '';
+  document.getElementById('brandRemoveLogo').checked = false;
+  document.getElementById('removeLogoRow').style.display = BRAND.logo ? '' : 'none';
+}
+async function loadBranding() {
+  const b = await api('/admin/api/branding');
+  BRAND = b; GRAPH = b.graph;
+  fillBrandForm(); paintBrand(); renderGraphStatus();
+}
+function renderGraphStatus() {
+  const box = document.getElementById('graphStatus');
+  if (!box || !GRAPH) return;
+  const badge = (on, text) => `<span class="badge ${on ? 'ok' : 'bad'}">${text}</span>`;
+  box.innerHTML = `<b><i class="fab fa-microsoft"></i> Microsoft Graph</b>
+    ${badge(GRAPH.ready, GRAPH.ready ? t('مضبوط') : t('غير مضبوط'))}
+    ${badge(GRAPH.tenant, 'Tenant ID')} ${badge(GRAPH.client, 'Client ID')} ${badge(GRAPH.secret, 'Client Secret')}
+    <span class="muted">${t('المرسل:')} <span class="mono">${esc(GRAPH.sender || '—')}</span></span>
+    <p class="hint">${t('تُضبط هذه القيم في ملف ‎.env عند التثبيت (‎1_setup.bat‎) ولا تُعرض هنا.')}</p>`;
+}
+document.addEventListener('change', e => {
+  if (e.target.id !== 'brandLogo' || !e.target.files || !e.target.files[0]) return;
+  const prev = document.getElementById('brandLogoPreview');
+  prev.src = URL.createObjectURL(e.target.files[0]); prev.classList.remove('sys-icon');
+});
+async function saveBranding(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  if (!document.getElementById('brandRemoveLogo').checked) fd.delete('removeLogo');
+  const r = await fetch('/admin/api/branding', { method: 'POST', body: fd });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) { showToast((data && data.error) || t('حدث خطأ'), '#dc2626'); return; }
+  BRAND = data; GRAPH = data.graph;
+  fillBrandForm(); paintBrand(); renderGraphStatus();
+  showToast(t('تم حفظ الإعدادات'), '#16a34a');
+}
+
+// ── Change my own password ──────────────────────────────────────────────
+function openPasswordModal() {
+  document.getElementById('userMenu').removeAttribute('open');
+  ['pwCurrent', 'pwNew', 'pwConfirm'].forEach(id => { const el = document.getElementById(id); el.value = ''; el.type = 'password'; });
+  document.getElementById('pwModal').classList.add('open');
+  setTimeout(() => document.getElementById('pwCurrent').focus(), 30);
+}
+function closePasswordModal() { document.getElementById('pwModal').classList.remove('open'); }
+async function savePassword(e) {
+  e.preventDefault();
+  const nw = document.getElementById('pwNew').value;
+  if (nw !== document.getElementById('pwConfirm').value) { showToast(t('كلمتا المرور غير متطابقتين'), '#dc2626'); return; }
+  await api('/admin/api/me/password', 'POST', { current: document.getElementById('pwCurrent').value, new: nw });
+  closePasswordModal();
+  showToast(t('تم تغيير كلمة المرور'), '#16a34a');
+}
+
 function toggleLang() {
   AR = !AR;
   localStorage.setItem('adminLang', AR ? 'ar' : 'en');
@@ -743,22 +679,55 @@ function toggleLang() {
   document.documentElement.lang = AR ? 'ar' : 'en';
   document.documentElement.dir = AR ? 'rtl' : 'ltr';
   paintStaticLabels();
-  renderStatCards(); renderTickets(); renderCategories(); renderTeachers(); renderStaff();
+  renderStatCards(); renderTickets(); renderCategories(); renderTeachers(); renderStaff(); renderReports();
   updateClock();
   if (window.reloadTicker) window.reloadTicker();
 }
 
 // ── Static label painting ────────────────────────────────────────────────
 function paintStaticLabels() {
-  document.getElementById('sbTitle').textContent = t('لوحة التحكم');
-  document.getElementById('sbStaff').textContent = `${esc(ME.fullName)} — ${esc(AR ? ME.roleLabelAr : ME.roleLabelEn)}`;
+  paintBrand();
+  document.getElementById('sbSys').textContent = t('نظام طلبات الدعم الفني');
+  document.getElementById('ngDaily').textContent = t('العمل اليومي');
+  document.getElementById('ngLists').textContent = t('القوائم والتقارير');
+  document.getElementById('ngAdmin').textContent = t('الإدارة');
+  document.getElementById('ngApp').textContent = t('التطبيق');
+  document.getElementById('navToggleBtn').setAttribute('aria-label', t('القائمة'));
+  document.getElementById('refreshBtn').title = t('تحديث');
+  document.getElementById('refreshBtn').setAttribute('aria-label', t('تحديث'));
+  const pill = document.getElementById('langPill');
+  pill.textContent = AR ? 'English' : 'العربية';
+  pill.lang = AR ? 'en' : 'ar';
+  document.getElementById('umAvatar').textContent = (ME.fullName || ME.username || '?').trim().charAt(0);
+  document.getElementById('umName').textContent = ME.fullName;
+  document.getElementById('umHeadName').textContent = ME.fullName;
+  document.getElementById('umRole').textContent = AR ? ME.roleLabelAr : ME.roleLabelEn;
+  document.getElementById('umPwLbl').textContent = t('تغيير كلمة المرور');
+  document.getElementById('pwTitle').textContent = t('تغيير كلمة المرور');
+  document.getElementById('pwCloseBtn').title = t('إغلاق النافذة');
+  document.getElementById('pwCurrentLbl').textContent = t('كلمة المرور الحالية');
+  document.getElementById('pwNewLbl').textContent = t('كلمة المرور الجديدة');
+  document.getElementById('pwConfirmLbl').textContent = t('تأكيد كلمة المرور الجديدة');
+  document.getElementById('pwSaveLbl').textContent = t('حفظ');
+  document.querySelectorAll('[data-eye]').forEach(b => b.setAttribute('aria-label', t('إظهار كلمة المرور')));
+  document.getElementById('idTitle').textContent = t('الهوية');
+  document.getElementById('idOrgArLbl').textContent = t('اسم المؤسسة بالعربية');
+  document.getElementById('idOrgArHint').textContent = t('الاسم الطويل يظهر تحت الشعار على عدة أسطر.');
+  document.getElementById('idOrgEnLbl').textContent = t('اسم المؤسسة بالإنجليزية');
+  document.getElementById('idAccentLbl').textContent = t('اللون الأساسي');
+  document.getElementById('idAccentHint').textContent = t('الافتراضي:');
+  document.getElementById('idLogoLbl').textContent = t('الشعار');
+  document.getElementById('idRemoveLogoLbl').textContent = t('إزالة الشعار');
+  document.getElementById('idLogoHint').textContent = t('إلى أن يُرفع شعار تظهر أيقونة النظام. PNG أو JPG أو WEBP.');
+  document.getElementById('idSaveLbl').textContent = t('حفظ');
+  document.getElementById('mailTitle').textContent = t('البريد');
+  renderGraphStatus();
   document.getElementById('navTicketsLbl').textContent = t('التذاكر');
   document.getElementById('navCatLbl').textContent = t('التصنيفات');
   document.getElementById('navTeachLbl').textContent = t('المعلمون');
   document.getElementById('navStaffLbl').textContent = t('الموظفون');
-  document.getElementById('sbHomeLbl').textContent = t('الصفحة الرئيسية');
+  document.getElementById('sbHomeLbl').textContent = t('صفحة تقديم الطلبات');
   document.getElementById('sbBellLbl').textContent = t('تفعيل إشعارات التذاكر الجديدة');
-  document.getElementById('sbLangLbl').textContent = AR ? 'EN' : 'عربي';
   document.getElementById('sbInstallLbl').textContent = t('تثبيت التطبيق');
   const apkLbl = document.getElementById('sbApkLbl');
   if (apkLbl) {
@@ -766,9 +735,8 @@ function paintStaticLabels() {
     // Android browsers only, and never inside the app itself.
     document.getElementById('apkBtn').style.display = (/android/i.test(navigator.userAgent) && !window.Capacitor) ? 'flex' : 'none';
   }
-  document.getElementById('sbLogoutLbl').textContent = t('خروج');
-  document.getElementById('refreshLbl').textContent = t('تحديث');
-  document.getElementById('archivedLbl').textContent = t('عرض المؤرشفة');
+  document.getElementById('sbLogoutLbl').textContent = t('تسجيل الخروج');
+    document.getElementById('archivedLbl').textContent = t('عرض المؤرشفة');
   document.getElementById('searchBox').placeholder = t('بحث برقم التذكرة، الموضوع، أو اسم المعلم...');
   document.getElementById('thSerial').textContent = t('الرقم');
   document.getElementById('thTeacher').textContent = t('المعلم');
@@ -869,6 +837,10 @@ function paintStaticLabels() {
   document.getElementById('navReportsBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
   document.getElementById('navTickerBtn').style.display = ME.role === 'technical_support' ? 'none' : '';
   document.getElementById('addTeacherCard').style.display = ME.role === 'technical_support' ? 'none' : '';
+  // a heading whose items are all hidden for this role is hidden too
+  document.querySelectorAll('.side-nav .nav-group').forEach(g => {
+    g.style.display = [...g.querySelectorAll('.nav-item')].some(n => n.style.display !== 'none') ? '' : 'none';
+  });
   document.getElementById('teacherUploadCard').style.display = ME.role === 'technical_support' ? 'none' : '';
 
   document.getElementById('navReportsLbl').textContent = t('التقارير');
@@ -891,6 +863,7 @@ function paintStaticLabels() {
 // ── Tab navigation (with URL-hash anchors, so refresh/shared links keep the tab) ──
 function showTab(name) {
   closeSidebar();
+  document.getElementById('userMenu')?.removeAttribute('open');
   window.currentTab = name;
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -908,6 +881,7 @@ function showTab(name) {
 }
 
 async function loadSettings() {
+  loadBranding();
   const s = await api('/admin/api/settings');
   document.getElementById('allowExternalToggle').checked = !!s.allowExternalSubmitters;
   const r = await api('/admin/api/reminder-settings');
@@ -1019,23 +993,22 @@ function renderReports() {
   if (!REPORTS_DATA) return;
   const o = REPORTS_DATA.overall;
   const cards = [
-    [t('الإجمالي'), o.total, ''], [t('مفتوحة'), o.byStatus.open, 'red'],
-    [t('قيد المعالجة'), o.byStatus.in_progress, 'accent'], [t('معلقة'), o.byStatus.waiting, 'orange'],
-    [t('مغلقة'), o.byStatus.closed, 'green'],
+    [t('الإجمالي'), o.total, ''], [t('مفتوحة'), o.byStatus.open, 'bad'],
+    [t('قيد المعالجة'), o.byStatus.in_progress, ''], [t('معلقة'), o.byStatus.waiting, 'warn'],
+    [t('مغلقة'), o.byStatus.closed, 'ok'],
   ];
   document.getElementById('reportsOverallCards').innerHTML = cards.map(([lbl, val, cls]) => `
-    <div class="stat-card ${cls}"><div class="stat-val">${val ?? 0}</div><div class="stat-label">${lbl}</div></div>
+    <div class="kpi ${cls}"><div class="n">${val ?? 0}</div><div class="l">${lbl}</div></div>
   `).join('') + (o.avgCloseHours != null ? `
-    <div class="stat-card accent"><div class="stat-val">${o.avgCloseHours}</div><div class="stat-label">${t('متوسط ساعات الإغلاق')}</div></div>` : '');
+    <div class="kpi"><div class="n">${o.avgCloseHours}</div><div class="l">${t('متوسط ساعات الإغلاق')}</div></div>` : '');
 
   document.getElementById('reportsStaffList').innerHTML = REPORTS_DATA.staff.map(row => {
     const open = REPORTS_OPEN_STAFF.has(row.staffId);
     const catRows = Object.entries(row.byCategory).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('') || `<tr><td colspan="2" style="color:var(--muted)">—</td></tr>`;
     const monthRows = Object.entries(row.byMonth).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') || `<tr><td colspan="2" style="color:var(--muted)">—</td></tr>`;
     return `
-    <div style="border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:${open ? '#f5fafa' : '#fff'}"
-           onclick="toggleReportsStaff(${row.staffId})">
+    <div class="report-staff ${open ? 'open' : ''}">
+      <div class="head" role="button" tabindex="0" aria-expanded="${open}" onclick="toggleReportsStaff(${row.staffId})">
         <div>
           <strong>${esc(row.fullName)}</strong>
           <span style="color:var(--muted);font-size:.8rem;margin-inline-start:8px">${roleLbl(row.role)}${!row.active ? ' · ' + t('غير نشط') : ''}</span>
@@ -1224,10 +1197,10 @@ function renderStatCards() {
     unassigned: all.filter(x => !x.assigneeId).length,
   };
   const defs = [
-    ['total', 'الإجمالي', 'clear', ''], ['open', 'مفتوحة', 'open', 'accent'],
-    ['in_progress', 'قيد المعالجة', 'in_progress', ''], ['waiting', 'معلقة', 'waiting', 'orange'],
-    ['closed', 'مغلقة', 'closed', 'green'],
-    ['high', 'أولوية عالية', 'high_priority', 'red'], ['unassigned', 'غير معينة', 'unassigned', 'orange'],
+    ['total', 'الإجمالي', 'clear', ''], ['open', 'مفتوحة', 'open', 'warn'],
+    ['in_progress', 'قيد المعالجة', 'in_progress', ''], ['waiting', 'معلقة', 'waiting', 'warn'],
+    ['closed', 'مغلقة', 'closed', 'ok'],
+    ['high', 'أولوية عالية', 'high_priority', 'bad'], ['unassigned', 'غير معينة', 'unassigned', 'warn'],
   ];
   const isOn = (key) => {
     if (key === 'high') return document.getElementById('filterPriority').value === 'high';
@@ -1235,9 +1208,9 @@ function renderStatCards() {
     return window.currentStatFilter === key;
   };
   document.getElementById('statCards').innerHTML = defs.map(([key, label, action, cls]) => `
-    <div class="stat-card ${cls} ${isOn(key) ? 'active' : ''}" onclick="filterByStat('${action}')" title="${t(label)}" style="${isOn(key) ? 'outline:2px solid var(--primary)' : ''}">
-      <div class="stat-val">${counts[key]}</div><div class="stat-label">${t(label)}</div>
-    </div>`).join('');
+    <button type="button" class="kpi ${cls} ${isOn(key) ? 'on' : ''} ${counts[key] ? '' : 'zero'}" onclick="filterByStat('${action}')" aria-pressed="${isOn(key)}">
+      <div class="n">${counts[key]}</div><div class="l">${t(label)}</div>
+    </button>`).join('');
 }
 
 function filterByStat(action) {
@@ -1427,7 +1400,7 @@ async function openDetail(id, focus) {
   document.getElementById('detailModalBody').innerHTML = `
     <div class="modal-title">
       <span>#${tk.serial} — ${esc(tk.subject)}</span>
-      <button class="modal-close" onclick="closeDetail()" title="${t('إغلاق النافذة')}"><i class="fas fa-times"></i></button>
+      <button class="modal-close" onclick="closeDetail()" title="${t('إغلاق النافذة')}" aria-label="${t('إغلاق النافذة')}"><i class="fas fa-xmark"></i></button>
     </div>
     <span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span>
     ${tk.mergedIntoSerial ? `<span style="font-size:.8rem;color:var(--muted)"> — ${t('تم دمج هذه التذكرة مع #')}${tk.mergedIntoSerial}</span>` : ''}
@@ -1450,7 +1423,7 @@ async function openDetail(id, focus) {
     ${tk.attachments.length ? `<div style="margin-bottom:10px">${tk.attachments.map((a,i)=>`<a href="${a}" target="_blank" class="btn btn-outline btn-sm" title="${t('المرفقات')}">${i+1} <i class="fas fa-paperclip"></i></a>`).join('')}</div>` : ''}
 
     ${canAssign ? `
-    <div style="background:#fdf2ee;border-radius:8px;padding:10px;margin:10px 0">
+    <div class="assign-box">
       <label style="margin-top:0">${t('تعيين إلى')}</label>
       <div style="display:flex;gap:6px">
         <select id="assigneeSelect" style="flex:1">
@@ -1501,6 +1474,9 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   document.getElementById('detailModal')?.classList.remove('open');
   document.getElementById('staffModal')?.classList.remove('open');
+  document.getElementById('pwModal')?.classList.remove('open');
+  document.querySelectorAll('details.user-menu[open]').forEach(d => d.removeAttribute('open'));
+  closeSidebar();
 });
 
 async function doAssign(id) {
@@ -1794,7 +1770,7 @@ async function deleteStaff(id) { if (!confirm(t('هل أنت متأكد من ت�
 // ── Staff edit modal ─────────────────────────────────────────────────────
 function roleExplanationHtml() {
   return `
-    <div style="background:#f0f7f8;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.8rem;line-height:1.7">
+    <div class="note-box">
       <div style="font-weight:800;margin-bottom:4px">${t('شرح الصلاحيات')}</div>
       <div><strong>${t('دعم فني')}:</strong> ${t('دعم فني: التعليق والإغلاق/إعادة الفتح والدمج — للتذاكر المعيّنة له فقط.')}</div>
       <div style="margin-top:4px"><strong>${t('مسؤول نظام')}:</strong> ${t('مسؤول نظام: كل صلاحيات الدعم الفني على كل التذاكر + تعيين/إلغاء تعيين/إعادة تعيين + إدارة التصنيفات والإعدادات.')}</div>
@@ -1808,7 +1784,7 @@ function openStaffEdit(id) {
   document.getElementById('staffModalBody').innerHTML = `
     <div class="modal-title">
       <span>${t('تعديل الحساب')} — ${esc(s.fullName)}</span>
-      <button class="modal-close" onclick="closeStaffModal()" title="${t('إغلاق النافذة')}"><i class="fas fa-times"></i></button>
+      <button class="modal-close" onclick="closeStaffModal()" title="${t('إغلاق النافذة')}" aria-label="${t('إغلاق النافذة')}"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="form-group"><label>${t('الاسم الكامل')}</label><input type="text" id="editStaffFullName" value="${esc(s.fullName)}"></div>
     <div class="form-group"><label>${t('البريد الإلكتروني')}</label><input type="email" id="editStaffEmail" value="${esc(s.email)}" dir="ltr"></div>
@@ -1821,7 +1797,7 @@ function openStaffEdit(id) {
       </select>
     </div>
     ${roleExplanationHtml()}
-    <div style="background:#fff8ec;border:1px solid #f0d9a8;border-radius:8px;padding:10px 14px;margin:10px 0">
+    <div class="note-box warn">
       <div style="font-weight:800;font-size:.82rem;margin-bottom:8px">${t('صلاحيات حساسة إضافية (بمعزل عن الدور)')}</div>
       <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:.85rem;margin-bottom:8px">
         <input type="checkbox" id="editStaffCanPriority" ${s.canChangePriority ? 'checked' : ''}>
@@ -1896,7 +1872,7 @@ async function requestNotifyPermission() {
     if (perm === 'granted') {
       const pushOk = await subscribeToPush();
       showToast(pushOk ? t('تم تفعيل الإشعارات — ستصلك حتى لو أغلقت التطبيق ✓') : t('تم تفعيل الإشعارات بالتطبيق المفتوح ✓'), '#27ae60');
-      if (btn) btn.classList.add('active');
+      if (btn) btn.classList.add('on-state');
     } else {
       showToast(t('لم يتم منح إذن الإشعارات'), '#c0392b');
     }
@@ -1912,7 +1888,7 @@ async function requestNotifyPermission() {
   await loadFilterOptions();
   await loadTickets();
 
-  const validTabs = ['tickets', 'categories', 'teachers', 'staff', 'settings', 'ticker'];
+  const validTabs = ['tickets', 'categories', 'teachers', 'staff', 'settings', 'reports', 'ticker'];
   const initialTab = location.hash.replace('#', '');
   if (validTabs.includes(initialTab)) showTab(initialTab);
 
@@ -1928,7 +1904,7 @@ async function requestNotifyPermission() {
   }
 
   if (window.Notification && Notification.permission === 'granted') {
-    document.getElementById('notifyBellBtn')?.classList.add('active');
+    document.getElementById('notifyBellBtn')?.classList.add('on-state');
   }
   setInterval(loadTickets, 60000);
 })();
@@ -1955,7 +1931,7 @@ async function requestNotifyPermission() {
     + '.cmdk-it i{width:20px;text-align:center;opacity:.8}'
     + '.cmdk-it .cmdk-lbl{flex:1;font-size:14.5px}'
     + '.cmdk-it .cmdk-grp{font-size:11.5px;opacity:.55}'
-    + '.cmdk-it.sel,.cmdk-it:hover{background:rgba(24,124,135,.14)}'
+    + '.cmdk-it.sel,.cmdk-it:hover{background:rgba(12,103,236,.12)}'
     + '.cmdk-empty{padding:22px;text-align:center;opacity:.6;font-size:14px}'
     + '@media (prefers-color-scheme:dark){.cmdk-box{background:#13201f;color:#e7eef0;border-color:rgba(255,255,255,.1)}.cmdk-ih,.cmdk-it.sel,.cmdk-it:hover{border-color:rgba(255,255,255,.1)}.cmdk-it.sel,.cmdk-it:hover{background:rgba(255,255,255,.08)}.cmdk-kbd{border-color:rgba(255,255,255,.25)}}'
     + ':root[data-theme="dark"] .cmdk-box{background:#13201f;color:#e7eef0;border-color:rgba(255,255,255,.1)}'

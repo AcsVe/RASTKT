@@ -58,7 +58,7 @@ git push -u origin main
 | `ADMIN_USER`        | اسم مستخدم أول حساب مدير عام                    |
 | `ADMIN_PASS`        | كلمة مرور أول حساب مدير عام                     |
 | `ORG_AR` / `ORG_EN` | اسم المؤسسة بالعربية / الإنجليزية               |
-| `LOGO_URL`          | رابط شعار المؤسسة                                |
+| `LOGO_URL`          | شعار أولي (يُقرأ مرة واحدة؛ بعدها من الإعدادات ← الهوية) |
 | `MS_TENANT_ID`      | معرّف المستأجر في Microsoft 365 (لإرسال البريد) |
 | `MS_CLIENT_ID`      | معرّف تطبيق Azure AD                             |
 | `MS_CLIENT_SECRET`  | السر الخاص بتطبيق Azure AD                       |

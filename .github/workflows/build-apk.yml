@@ -79,7 +79,7 @@ jobs:
 
       - name: Generate launcher icons
         working-directory: android-app
-        run: npx capacitor-assets generate --android --iconBackgroundColor '#1B3358' --iconBackgroundColorDark '#1B3358' --splashBackgroundColor '#1B3358' --splashBackgroundColorDark '#1B3358'
+        run: npx capacitor-assets generate --android --iconBackgroundColor '#0847B0' --iconBackgroundColorDark '#0847B0' --splashBackgroundColor '#0847B0' --splashBackgroundColorDark '#0847B0'
 
       # capacitor-assets writes the adaptive-icon XMLs pointing at
       # @mipmap/ic_launcher_background, but only creates a *color* resource

@@ -422,6 +422,13 @@ def init_db(app):
         db.session.rollback()
 
     import os
+    # The organization logo setting (Settings → identity): see utils/branding.py.
+    try:
+        from utils.branding import seed_brand
+        seed_brand(existing_install=StaffUser.query.count() > 0)
+    except Exception:
+        db.session.rollback()
+
     if StaffUser.query.count() == 0:
         from werkzeug.security import generate_password_hash
         username = os.environ.get('ADMIN_USER', 'admin')

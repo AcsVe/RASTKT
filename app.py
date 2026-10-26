@@ -52,7 +52,8 @@ def create_app():
     # Set APK_DOWNLOAD_URL to override, or to an empty-looking value like "-" to hide the button.
     app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/latest/download/RASTKT.apk')
     app.config['LOGO_URL']      = os.environ.get('LOGO_URL', '/static/logo.png')
-    app.config['ACCENT_COLOR']  = os.environ.get('ACCENT_COLOR', '#EBB37B')
+    # Both are only the starting values: Settings → identity overrides them (utils/branding.py).
+    app.config['ACCENT_COLOR']  = os.environ.get('ACCENT_COLOR', '')
     app.config['BASE_URL']      = os.environ.get('BASE_URL', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
 
     # Microsoft 365 (Graph API) — sole email provider
@@ -81,6 +82,23 @@ XEqPZq2IE3k9g455XAokrxI6N2LhLDhtu3SMlEulXPw9IcShiKeKf2xO
     db.init_app(app)
     with app.app_context():
         init_db(app)
+
+    # The organization's identity (names, colour, logo) in every template.
+    @app.context_processor
+    def _inject_brand():
+        from datetime import datetime
+        from utils.branding import brand
+        try:
+            from zoneinfo import ZoneInfo
+            year = datetime.now(ZoneInfo('Asia/Amman')).year
+        except Exception:                    # Windows without tzdata
+            year = datetime.now().year
+        try:
+            b = brand()
+        except Exception:
+            b = {'org_ar': app.config['ORG_AR'], 'org_en': app.config['ORG_EN'], 'accent': '#0C67EC',
+                 'logo': '', 'logo_url': '/static/brand/system.svg', 'icon': '/static/brand/system.svg'}
+        return {'brand': b, 'now_year': year}
 
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')

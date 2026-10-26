@@ -970,6 +970,71 @@ def api_set_settings():
     return jsonify({'allowExternalSubmitters': get_setting('allow_external_submitters', '0') == '1'})
 
 
+# ── Identity (names, colour, logo) and the Microsoft Graph status ───────────
+@admin_bp.route('/api/branding')
+@login_required
+def api_get_branding():
+    from utils.branding import brand
+    cfg = current_app.config
+    b = brand()
+    # Only whether each value is set — never the values themselves (the sender address is not a secret).
+    graph = {'ready': all(cfg.get(k) for k in ('MS_TENANT_ID', 'MS_CLIENT_ID', 'MS_CLIENT_SECRET', 'MS_SENDER_EMAIL')),
+             'tenant': bool(cfg.get('MS_TENANT_ID')), 'client': bool(cfg.get('MS_CLIENT_ID')),
+             'secret': bool(cfg.get('MS_CLIENT_SECRET')), 'sender': cfg.get('MS_SENDER_EMAIL') or ''}
+    return jsonify({'orgAr': b['org_ar'], 'orgEn': b['org_en'], 'accent': b['accent'],
+                    'logo': b['logo'], 'logoUrl': b['logo_url'], 'graph': graph})
+
+
+@admin_bp.route('/api/branding', methods=['POST'])
+@login_required
+def api_set_branding():
+    from utils.branding import save_logo, valid_accent
+    staff = current_staff()
+    if not staff.is_system_admin_or_above():
+        return jsonify({'error': 'forbidden'}), 403
+    lang = session.get('admin_lang', 'ar')
+    f = request.form
+    org_ar = sanitize_text(f.get('orgAr', ''))[:200]
+    if not org_ar:
+        return jsonify({'error': 'اسم المؤسسة بالعربية مطلوب' if lang == 'ar' else 'The Arabic name is required'}), 400
+    accent = (f.get('accent') or '').strip()
+    if accent and not valid_accent(accent):
+        return jsonify({'error': 'لون غير صالح' if lang == 'ar' else 'Invalid colour'}), 400
+    upload = request.files.get('logo')
+    url = None
+    if upload and upload.filename:
+        url = save_logo(upload)
+        if not url:
+            return jsonify({'error': 'الشعار يجب أن يكون صورة PNG أو JPG أو WEBP' if lang == 'ar'
+                            else 'The logo must be a PNG, JPG or WEBP image'}), 400
+    set_setting('brand_org_ar', org_ar)
+    set_setting('brand_org_en', sanitize_text(f.get('orgEn', ''))[:200])
+    if accent:
+        set_setting('brand_accent', accent)
+    if url:
+        set_setting('brand_logo', url)
+    elif f.get('removeLogo') == '1':
+        set_setting('brand_logo', '')        # back to the system icon
+    return api_get_branding()
+
+
+@admin_bp.route('/api/me/password', methods=['POST'])
+@login_required
+def api_change_my_password():
+    staff = current_staff()
+    lang = session.get('admin_lang', 'ar')
+    data = request.get_json(silent=True) or {}
+    current, new = data.get('current') or '', data.get('new') or ''
+    if not check_password_hash(staff.password_hash, current):
+        return jsonify({'error': 'كلمة المرور الحالية غير صحيحة' if lang == 'ar' else 'The current password is wrong'}), 400
+    if len(new) < 6:
+        return jsonify({'error': 'كلمة المرور الجديدة قصيرة (6 أحرف على الأقل)' if lang == 'ar'
+                        else 'The new password is too short (at least 6 characters)'}), 400
+    staff.password_hash = generate_password_hash(new)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 # ── Auto reminder for unprocessed tickets ───────────────────────────────────
 @admin_bp.route('/api/reminder-settings')
 @login_required

@@ -7,39 +7,46 @@
 
   <!-- PWA: Add to Home Screen (Android + iOS + Desktop) -->
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#1B3358">
-  <link rel="icon" href="/static/icon-192.png" type="image/png">
+  <meta name="theme-color" content="#0C67EC">
+  <link rel="icon" href="/static/brand/system.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="{{ 'الدعم الفني' if lang == 'ar' else 'IT Support' }}">
   <meta name="mobile-web-app-capable" content="yes">
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #FF5733;
-      --primary-dark: #C43D1F;
-      --primary-light: #FF8563;
-      --secondary: #2E4E7A;
-      --secondary-dark: #1B3358;
-      --secondary-light: #5A7CA8;
-      --accent: {{ config.ACCENT_COLOR }};
-      --bg: #eef3f5;
+      /* the SAS / appace palette (static/css/app.css); --accent is the organization's colour */
+      --primary: {{ brand.accent }};
+      --primary-dark: #0847B0;
+      --primary-deep: #0a3a8a;
+      --primary-light: #3D8EF5;
+      --primary-soft: #e8f1fe;
+      --secondary: #0C67EC;
+      --secondary-dark: #0a3a8a;
+      --secondary-light: #0847B0;
+      --accent: {{ brand.accent }};
+      --navy: #0f2a52;
+      --bg: #f0f4fa;
       --white: #fff;
-      --text: #1e2a2b;
-      --muted: #6b7c7e;
-      --border: #cfe0e3;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e3e9f2;
+      --line: #d5deea;
       --radius: 14px;
-      --shadow: 0 4px 20px rgba(255,87,51,.12);
-      --shadow-sm: 0 2px 8px rgba(255,87,51,.08);
-      --green: #27ae60; --red: #c0392b; --orange: #e67e22;
+      --shadow: 0 1px 2px rgba(15,42,82,.06), 0 6px 20px rgba(15,42,82,.08);
+      --shadow-sm: 0 1px 2px rgba(15,42,82,.06), 0 3px 10px rgba(15,42,82,.06);
+      --green: #16a34a; --red: #dc2626; --orange: #d97706;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 15px; height: 100%; }
     body {
-      font-family: {% if lang == 'ar' %}'Tajawal'{% else %}'Inter'{% endif %}, sans-serif;
+      font-family: 'Tajawal', 'Segoe UI', Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
       background: var(--bg);
       color: var(--text);
       height: 100%;
@@ -49,6 +56,7 @@
 
     #siteHeaderFixed {
       position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: var(--primary-deep); /* the ticker strip reads on the same blue as the bar */
     }
     /* The ticker is fixed by default (for pages that include it standalone),
        but here it's nested inside the header wrapper above, which already
@@ -57,32 +65,36 @@
     #siteHeaderFixed #globalTicker { position: static; z-index: auto; }
 
     .topbar {
-      background: linear-gradient(135deg, var(--secondary-dark) 0%, var(--secondary) 50%, var(--secondary-light) 100%);
+      background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-dark) 55%, #0C67EC 100%);
       color: #fff;
       padding: 0 20px;
       display: flex;
       align-items: center;
       gap: 14px;
-      box-shadow: 0 3px 16px rgba(0,0,0,.25);
+      box-shadow: 0 3px 16px rgba(10,58,138,.25);
       min-height: 64px;
       z-index: 100;
       flex-wrap: wrap;
     }
     .topbar-logo-chip {
-      background: #fff; border-radius: 10px; padding: 6px 12px;
-      display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); flex-shrink: 0;
+      background: #fff; border-radius: 12px; padding: 6px 12px;
+      display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,.18); flex-shrink: 0;
     }
-    .topbar img { height: 56px; display: block; }
+    .topbar-logo-chip.sys-icon { padding: 0; background: transparent; }
+    .topbar img { height: 52px; display: block; }
     .topbar-titles { flex: 1; min-width: 140px; }
-    .topbar-titles span { font-weight: 800; font-size: 1.2rem; }
+    .topbar-titles span { font-weight: 800; font-size: 1.15rem; }
+    .topbar-titles .topbar-org { display: block; font-size: .8rem; font-weight: 600; color: rgba(255,255,255,.8); }
     .topbar-clock { display: block; margin-top: 3px; font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.78); }
     .topbar-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 10px 0; }
     .topbar-nav a {
-      display: flex; align-items: center; gap: 6px; padding: 8px 14px;
-      border-radius: 10px; font-size: .85rem; font-weight: 600;
-      background: rgba(255,255,255,.08); transition: .15s;
+      display: flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 40px;
+      border-radius: 10px; font-size: .86rem; font-weight: 700;
+      background: rgba(255,255,255,.1); transition: .15s;
     }
-    .topbar-nav a:hover, .topbar-nav a.active { background: rgba(255,255,255,.22); }
+    .topbar-nav a:hover { background: rgba(255,255,255,.2); }
+    .topbar-nav a.active { background: #fff; color: var(--primary-dark); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+    .topbar-nav a.lang-pill { background: #fff; color: var(--primary-dark); border-radius: 20px; font-weight: 800; }
 
     .container {
       position: fixed; top: 64px; left: 0; right: 0; bottom: 0; overflow-y: auto;
@@ -92,16 +104,17 @@
       background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
       padding: 26px; margin-bottom: 18px; border: 1px solid var(--border);
     }
-    h1.page-title { font-size: 1.35rem; color: var(--primary-dark); margin-bottom: 4px; }
+    h1.page-title { font-size: 1.35rem; color: var(--navy); font-weight: 800; margin-bottom: 4px; }
     .page-sub { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
 
     label { display: block; font-weight: 700; font-size: .85rem; margin: 14px 0 6px; color: var(--text); }
     input[type=text], input[type=email], input[type=tel], input[type=search],
     select, textarea {
-      width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px;
-      font-family: inherit; font-size: .92rem; background: #fbfdfd; color: var(--text);
+      width: 100%; padding: 11px 13px; border: 1.5px solid var(--line); border-radius: 10px;
+      font-family: inherit; font-size: .95rem; background: #fff; color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
     }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(12,103,236,.15); }
     textarea { min-height: 110px; resize: vertical; }
     .hint { font-size: .78rem; color: var(--muted); margin-top: 4px; }
     .field-error { color: var(--red); font-size: .8rem; margin-top: 4px; font-weight: 600; }
@@ -113,40 +126,42 @@
       padding: 12px 22px; border: none; border-radius: 10px; font-weight: 700;
       font-size: .92rem; cursor: pointer; font-family: inherit; transition: .15s;
     }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 2px 6px rgba(12,103,236,.22); }
+    .btn-primary:hover { filter: brightness(1.07); }
     .btn-block { width: 100%; margin-top: 18px; }
-    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-outline { background: #fff; border: 1.5px solid var(--line); color: var(--navy); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
 
     .alert { padding: 14px 16px; border-radius: 10px; margin-bottom: 16px; font-size: .88rem; font-weight: 600; }
-    .alert-success { background: #eaf7ee; color: #1f7a44; border: 1px solid #cfead6; }
-    .alert-error { background: #fdf0f0; color: #c0392b; border: 1px solid #f6d3d1; }
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 
     .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 700; }
-    .badge-open { background: #fef2e0; color: #b9770e; }
-    .badge-in_progress { background: #e3f0ff; color: #1a5fb4; }
-    .badge-waiting { background: #fdf1e3; color: #b9770e; }
-    .badge-closed { background: #eaf7ee; color: #1f7a44; }
-    .priority-low { color: #6b7c7e; }
-    .priority-medium { color: #1a5fb4; }
-    .priority-high { color: #c0392b; font-weight: 800; }
+    .badge-open { background: #fef3c7; color: #92400e; }
+    .badge-in_progress { background: #dbeafe; color: #1e40af; }
+    .badge-waiting { background: #ffedd5; color: #9a3412; }
+    .badge-closed { background: #dcfce7; color: #166534; }
+    .priority-low { color: #64748b; }
+    .priority-medium { color: #1e40af; }
+    .priority-high { color: #dc2626; font-weight: 800; }
 
     .ticket-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 16px 0; }
     .ticket-meta .k { font-size: .78rem; color: var(--muted); font-weight: 700; }
     .ticket-meta .v { font-size: .92rem; }
     .tracking-chip {
-      display: inline-block; font-family: 'Inter', monospace; letter-spacing: 2px;
+      display: inline-block; font-family: Consolas, monospace; letter-spacing: 2px; direction: ltr;
       background: var(--primary); color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 800;
     }
-    .comment { border-inline-start: 3px solid var(--primary); background: #f5fafa; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
-    .comment.staff { border-inline-start-color: var(--secondary); background: #f2f5fa; }
+    .comment { border-inline-start: 3px solid var(--primary); background: #f5f9ff; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+    .comment.staff { border-inline-start-color: var(--primary-deep); background: #eef3fb; }
     .comment .meta { font-size: .74rem; color: var(--muted); margin-bottom: 4px; font-weight: 700; }
     .comment .body { white-space: pre-wrap; font-size: .88rem; }
-    .teacher-suggestion:hover { background: #f5fafa; }
+    .teacher-suggestion:hover { background: var(--primary-soft); }
 
     @media (max-width: 640px) {
       .topbar { padding: 10px 12px; }
-      .topbar img { height: 44px; }
+      .topbar img { height: 40px; }
+      .topbar-titles .topbar-org { display: none; }
       .topbar-titles span { font-size: 1rem; }
       .topbar-clock { font-size: .72rem; }
       .topbar-nav { width: 100%; }
@@ -162,11 +177,10 @@
   <div id="siteHeaderFixed">
     {% include "_ticker.html" %}
     <div class="topbar">
-      {% if config.LOGO_URL %}
-      <div class="topbar-logo-chip"><img src="{{ config.LOGO_URL }}" alt="{{ 'شعار المؤسسة' if lang == 'ar' else 'Organization logo' }}"></div>
-      {% endif %}
+      <div class="topbar-logo-chip{{ '' if brand.logo else ' sys-icon' }}"><img src="{{ brand.logo_url }}" alt="{{ 'شعار المؤسسة' if lang == 'ar' else 'Organization logo' }}"></div>
       <div class="topbar-titles">
         <span>{{ 'نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests System' }}</span>
+        <span class="topbar-org">{{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</span>
         <span class="topbar-clock" id="topbarClock"></span>
       </div>
       <nav class="topbar-nav">
@@ -178,8 +192,8 @@
            title="{{ 'الاستعلام عن حالة تذكرة' if lang == 'ar' else 'Look up a ticket status' }}">
           <i class="fas fa-search"></i> {{ 'استعلام' if lang == 'ar' else 'Lookup' }}
         </a>
-        <a href="?lang={{ 'en' if lang == 'ar' else 'ar' }}" title="{{ 'تبديل اللغة' if lang == 'ar' else 'Switch language' }}">
-          <i class="fas fa-globe"></i> {{ 'EN' if lang == 'ar' else 'عربي' }}
+        <a href="?lang={{ 'en' if lang == 'ar' else 'ar' }}" class="lang-pill" lang="{{ 'en' if lang == 'ar' else 'ar' }}" title="{{ 'تبديل اللغة' if lang == 'ar' else 'Switch language' }}">
+          <i class="fas fa-globe"></i> {{ 'English' if lang == 'ar' else 'العربية' }}
         </a>
         <a href="#" id="installAppBtn" onclick="handleInstallClick(event)" style="display:none"
            title="{{ 'تثبيت التطبيق على الجهاز' if lang == 'ar' else 'Install the app on this device' }}">

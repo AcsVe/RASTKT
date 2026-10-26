@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="TKT">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3D8EF5"/><stop offset=".55" stop-color="#0C67EC"/><stop offset="1" stop-color="#0847B0"/></linearGradient></defs>
+  <rect width="120" height="120" rx="28" fill="url(#g)"/>
+  <path d="M24 34a6 6 0 0 1 6-6h60a6 6 0 0 1 6 6v12a10 10 0 0 0 0 20v12a6 6 0 0 1-6 6H30a6 6 0 0 1-6-6V66a10 10 0 0 0 0-20z" fill="#fff"/>
+  <path d="M74 31v50" stroke="#0C67EC" stroke-width="2.5" stroke-dasharray="4 4" opacity=".55"/>
+  <path d="M38 60v-5a12 12 0 0 1 24 0v5" fill="none" stroke="#0C67EC" stroke-width="5" stroke-linecap="round"/>
+  <rect x="34" y="56" width="9" height="14" rx="3.5" fill="#0C67EC"/>
+  <rect x="57" y="56" width="9" height="14" rx="3.5" fill="#0C67EC"/>
+  <path d="M61.5 70c0 5-4 7-10 7" fill="none" stroke="#0C67EC" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="50" cy="77" r="3.2" fill="#0C67EC"/>
+  <circle cx="88" cy="88" r="16" fill="#f59e0b" stroke="#fff" stroke-width="4"/>
+  <g transform="rotate(45 88 88)" fill="#fff">
+    <rect x="85.5" y="86" width="5" height="15" rx="2.5"/>
+    <path d="M81 79a7 7 0 0 0 14 0v-4h-4v5h-6v-5h-4z"/>
+  </g>
+</svg>

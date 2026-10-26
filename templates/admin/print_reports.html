@@ -6,7 +6,7 @@
 <title>{{ 'تقرير التقييم' if lang == 'ar' else 'Evaluation Report' }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --primary: #FF5733; --primary-dark: #C43D1F; --secondary: #2E4E7A; --border: #e0e8e9; --muted: #6b7c7e; }
+  :root { --primary: #0C67EC; --primary-dark: #0847B0; --secondary: #0a3a8a; --border: #e0e8e9; --muted: #6b7c7e; }
   * { box-sizing: border-box; }
   body { font-family: Tajawal, Arial, sans-serif; padding: 30px; color: #1e2a2b; max-width: 960px; margin: 0 auto; }
   .head { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); padding-bottom: 14px; margin-bottom: 6px; }
@@ -42,7 +42,7 @@
 </head>
 <body>
   <div class="head">
-    {% if config.LOGO_URL %}<img src="{{ config.LOGO_URL }}" alt="logo">{% endif %}
+    <img src="{{ brand.logo_url }}" alt="logo">
     <h1>{{ 'تقرير تقييم موظفي الدعم الفني' if lang == 'ar' else 'IT Support Staff Evaluation Report' }}</h1>
   </div>
   <div class="meta">{{ 'تاريخ التوليد' if lang == 'ar' else 'Generated' }}: {{ generated_at.strftime('%Y-%m-%d %H:%M') }} UTC</div>

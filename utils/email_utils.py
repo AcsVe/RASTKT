@@ -97,16 +97,9 @@ def _send(to_email, to_name, subject, html_body, bcc_list=None):
 
 
 def _abs_logo_url():
-    """Email clients need an absolute URL — /static/logo.png alone won't load."""
-    logo = current_app.config.get('LOGO_URL', '')
-    if not logo:
-        return ''
-    if logo.startswith('http://') or logo.startswith('https://'):
-        return logo
-    base = current_app.config.get('BASE_URL', '')
-    if not base:
-        return ''
-    return base.rstrip('/') + logo
+    """Email clients need an absolute URL: the uploaded logo, or the system icon (PNG)."""
+    from utils.branding import email_logo_url
+    return email_logo_url()
 
 
 def _lookup_url(tracking_code):
@@ -212,8 +205,10 @@ def _base_html(content_ar, content_en, color='#247680'):
     max-width on a div) because Outlook desktop's Word-based rendering
     engine frequently ignores max-width/margin:auto on divs."""
     logo = _abs_logo_url()
-    org_ar = current_app.config.get('ORG_AR', 'مدرسة الرائد العربي')
-    org_en = current_app.config.get('ORG_EN', 'Al-Raed Al-Arabi School')
+    from utils.branding import brand
+    _b = brand()
+    org_ar = _b['org_ar'] or 'مدرسة الرائد العربي'
+    org_en = _b['org_en'] or 'Al-Raed Al-Arabi School'
     logo_html = (f'<img src="{logo}" alt="logo" width="120" style="display:block;margin:0 auto 6px;max-width:120px;height:auto">'
                  if logo else '')
 

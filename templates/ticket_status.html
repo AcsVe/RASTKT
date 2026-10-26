@@ -26,7 +26,7 @@
   </div>
 
   {% if ticket.mergedIntoSerial %}
-  <div class="alert" style="background:#eef3f5;color:#C43D1F;border:1px solid var(--border);margin-top:14px">
+  <div class="alert" style="background:var(--primary-soft);color:var(--primary-dark);border:1px solid var(--border);margin-top:14px">
     <i class="fas fa-link"></i>
     {{ 'تم دمج هذه التذكرة مع التذكرة رقم' if lang == 'ar' else 'This ticket was merged into ticket #' }} {{ ticket.mergedIntoSerial }}.
   </div>

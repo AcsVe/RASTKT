@@ -8,13 +8,14 @@
 // connection. What this buys is a usable app shell while offline
 // (reading what was last loaded), not offline data entry.
 
-const SHELL_CACHE = 'raed-tickets-shell-v2';
-const PAGE_CACHE = 'raed-tickets-pages-v2';
+const SHELL_CACHE = 'raed-tickets-shell-v3';
+const PAGE_CACHE = 'raed-tickets-pages-v3';
 const CURRENT_CACHES = [SHELL_CACHE, PAGE_CACHE];
 
 const SHELL_ASSETS = [
   '/static/offline.html',
   '/static/logo.png',
+  '/static/brand/system.svg',
   '/static/icon-192.png',
   '/static/icon-512.png',
   '/static/apple-touch-icon.png',

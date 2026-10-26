@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }} — {{ config.ORG_AR }}</title>
+<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }} — {{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</title>
 
 <!-- PWA: Add to Home Screen (Android + iOS + Desktop) — same manifest/service
      worker as the rest of the site, so this screen can be installed and
      opened standalone (e.g. pinned as a dedicated office/TV display). -->
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1B3358">
+<meta name="theme-color" content="#0C67EC">
 <link rel="icon" href="/static/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,14 +17,14 @@
 <meta name="apple-mobile-web-app-title" content="{{ 'المتابعة' if lang == 'ar' else 'Monitoring' }}">
 <meta name="mobile-web-app-capable" content="yes">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --primary: #FF5733; --secondary: #2E4E7A; --secondary-dark: #1B3358;
-  --accent: {{ config.ACCENT_COLOR }};
-  --bg: #f0f4f5; --white: #fff; --text: #1e2a2b; --muted: #6b7c7e; --border: #d4e4e6;
-  --green: #27ae60; --red: #c0392b; --orange: #e67e22; --blue: #2E4E7A;
+  --primary: #0C67EC; --secondary: #0847B0; --secondary-dark: #0a3a8a;
+  --accent: {{ brand.accent }};
+  --bg: #f0f4fa; --white: #fff; --text: #1e293b; --muted: #64748b; --border: #e3e9f2;
+  --green: #16a34a; --red: #dc2626; --orange: #d97706; --blue: #0847B0;
 }
 * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
@@ -35,7 +35,7 @@ body { font-family: 'Tajawal', sans-serif; background: var(--bg); color: var(--t
    own pane offset by the fixed block's real (JS-measured) height — so
    page content can never physically scroll up behind/through the ticker,
    which is what caused the earlier overlap. */
-#siteHeaderFixed { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+#siteHeaderFixed { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: #0a3a8a; }
 #siteHeaderFixed #globalTicker { position: static; z-index: auto; }
 .container { position: fixed; top: 64px; left: 0; right: 0; bottom: 0; overflow-y: auto; }
 header {
@@ -90,6 +90,12 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .stat-card.green .stat-val { color: var(--green); } .stat-card.red .stat-val { color: var(--red); }
 .stat-card.orange .stat-val { color: var(--orange); } .stat-card.blue .stat-val { color: var(--blue); }
 .stat-label { font-size: .78rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
+/* SAS KPI look: a 5px coloured edge on the start side instead of the top border */
+.stat-card { border: 1px solid #e3e9f2; border-top-color: #e3e9f2 !important; position: relative; overflow: hidden; border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15,42,82,.06), 0 6px 20px rgba(15,42,82,.08); --k: var(--primary); }
+.stat-card::before { content: ''; position: absolute; inset-block: 0; inset-inline-start: 0; width: 5px; background: var(--k); }
+.stat-card.green { --k: var(--green); } .stat-card.red { --k: var(--red); } .stat-card.orange { --k: var(--orange); } .stat-card.blue { --k: var(--blue); }
+.stat-label { color: #0f2a52; font-weight: 800; }
 
 .panel { background: var(--white); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 18px; }
 .panel h2 { font-size: .95rem; font-weight: 800; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
@@ -157,6 +163,7 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
   {% include "_ticker.html" %}
   <header>
     <div class="brand">
+      <img src="{{ brand.logo_url }}" alt=""{% if not brand.logo %} style="background:transparent;padding:0"{% endif %}>
       <div>
         <h1 id="pageTitle"></h1>
         <div class="sub" id="pageSub"></div>
