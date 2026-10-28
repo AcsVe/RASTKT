@@ -251,6 +251,41 @@ def _class_label(t):
     return ' / '.join(parts)
 
 
+def esc(s):
+    """HTML-escape text written by people (descriptions, comments) before it goes into an email."""
+    import html as _html
+    return _html.escape(str(s or ''), quote=False)
+
+
+# One box per kind of text, as prominent as a comment: a coloured side bar, a small label and the text in a large,
+# dark font. A table so Outlook keeps the bar and background; new lines become <br>.
+_BOX = {
+    'note':     ('#fff4dc', '#e0a100', '#8a5a00'),   # the teacher's description of the problem
+    'comment':  ('#e3f1f3', '#247680', '#247680'),   # a comment from the teacher or IT support
+    'internal': ('#f1f3f5', '#6b7c7e', '#4b5563'),   # an internal staff note
+}
+
+
+def _text_box(text, lang='ar', label='', kind='note'):
+    if not text or not str(text).strip():
+        return ''
+    bg, bar, lab = _BOX.get(kind, _BOX['note'])
+    rtl = lang == 'ar'
+    side = 'right' if rtl else 'left'
+    body = '<br>'.join(esc(line) for line in str(text).replace('\r\n', '\n').split('\n'))
+    return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            f'style="width:100%;margin:12px 0;border-collapse:collapse">'
+            f'<tr><td style="background:{bg};border-{side}:5px solid {bar};padding:10px 14px;'
+            f'text-align:{side};direction:{"rtl" if rtl else "ltr"}">'
+            f'<div style="color:{lab};font-weight:700;font-size:13px;margin-bottom:6px">{label}</div>'
+            f'<div dir="auto" style="color:#1a1a1a;font-size:16px;line-height:1.7;font-weight:600;text-align:start">{body}</div>'
+            f'</td></tr></table>')
+
+
+def _desc_box(t, lang='ar'):
+    return _text_box(t.get('description'), lang, '📝 وصف المشكلة من مقدّم الطلب' if lang == 'ar' else '📝 Problem description', 'note')
+
+
 def _rows_ar(t, bg='#f0f7f8'):
     return _build_rows([
         ('الرقم التسلسلي', f'<strong style="color:#247680">#{t.get("serial","")}</strong>'),
@@ -284,6 +319,7 @@ def send_ticket_confirmation(t):
     <h2 style="color:#247680;margin-top:0">✅ تم استلام طلب الدعم الفني</h2>
     <p>شكراً <strong>{t['teacherName']}</strong>، تم تسجيل تذكرتك وهي الآن قيد المتابعة.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_ar(t)}</table>
+    {_desc_box(t, 'ar')}
     <p style="color:#555">احتفظ برقم الاستعلام <strong dir="ltr">{t['trackingCode']}</strong> لمتابعة حالة التذكرة والتواصل معنا بخصوصها.</p>
     {_lookup_link_html(t)}
     """
@@ -291,6 +327,7 @@ def send_ticket_confirmation(t):
     <h2 style="color:#247680;margin-top:0">✅ Support Ticket Received</h2>
     <p>Thank you <strong>{t['teacherName']}</strong>, your ticket has been logged and is now being tracked.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_en(t)}</table>
+    {_desc_box(t, 'en')}
     <p style="color:#555">Keep your tracking code <strong dir="ltr">{t['trackingCode']}</strong> to follow up on the ticket or add comments.</p>
     """
     return _send(t['teacherEmail'], t['teacherName'],
@@ -344,12 +381,14 @@ def send_ticket_assigned(t):
     content_ar = f"""
     <h2 style="color:#247680;margin-top:0">📌 تم تعيين تذكرة لك</h2>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_ar(t)}</table>
+    {_desc_box(t, 'ar')}
     <p style="color:#555">يمكنك فتح التذكرة أو إغلاقها مباشرة من الأزرار أدناه.</p>
     {buttons}
     """
     content_en = f"""
     <h2 style="color:#247680;margin-top:0">📌 A Ticket Was Assigned to You</h2>
     <table style="width:100%;border-collapse:collapse;margin:16px 0">{_rows_en(t)}</table>
+    {_desc_box(t, 'en')}
     <p style="color:#555">Please open the ticket from the control panel to follow up.</p>
     """
     return _send(t.get('assigneeEmail', ''), t.get('assigneeName', ''),
@@ -427,14 +466,14 @@ def send_new_comment_notification(t, comment, to_email, to_name, to_teacher=None
     link_html = _lookup_link_html(t) if to_teacher else _dashboard_link_html()
     content_ar = f"""
     <h2 style="color:#247680;margin-top:0">💬 تعليق جديد على التذكرة #{t['serial']}</h2>
-    <p><strong>{author_ar}</strong> أضاف التعليق التالي:</p>
-    <div style="background:#f0f7f8;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
+    <p><strong>{esc(author_ar)}</strong> أضاف التعليق التالي:</p>
+    {_text_box(comment['body'], 'ar', '💬 نص التعليق — ' + esc(author_ar), 'comment')}
     {link_html}
     """
     content_en = f"""
     <h2 style="color:#247680;margin-top:0">💬 New Comment on Ticket #{t['serial']}</h2>
-    <p><strong>{author_en}</strong> added the following comment:</p>
-    <div style="background:#f0f7f8;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
+    <p><strong>{esc(author_en)}</strong> added the following comment:</p>
+    {_text_box(comment['body'], 'en', '💬 Comment — ' + esc(author_en), 'comment')}
     """
     return _send(to_email, to_name,
                  f"[دعم فني/IT Support] تعليق جديد على التذكرة #{t['serial']}",
@@ -449,13 +488,13 @@ def send_internal_note_notification(t, comment, emails):
     content_ar = f"""
     <h2 style="color:#6b7c7e;margin-top:0">🔒 ملاحظة داخلية على التذكرة #{t['serial']}</h2>
     <p><strong>{author}</strong> أضاف ملاحظة داخلية (غير مرئية لمقدم الطلب):</p>
-    <div style="background:#f5f5f5;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
+    {_text_box(comment['body'], 'ar', '🔒 الملاحظة الداخلية — ' + esc(author), 'internal')}
     {_dashboard_link_html()}
     """
     content_en = f"""
     <h2 style="color:#6b7c7e;margin-top:0">🔒 Internal Note on Ticket #{t['serial']}</h2>
     <p><strong>{author}</strong> added an internal note (hidden from the requester):</p>
-    <div style="background:#f5f5f5;border-radius:8px;padding:10px 14px;margin:10px 0;white-space:pre-wrap">{comment['body']}</div>
+    {_text_box(comment['body'], 'en', '🔒 Internal note — ' + esc(author), 'internal')}
     """
     html = _base_html(content_ar, content_en, '#6b7c7e')
     subject = f"[داخلي/Internal] ملاحظة على التذكرة #{t['serial']}"
@@ -553,13 +592,13 @@ def send_staff_new_ticket_notification(t, staff_list):
         content_ar = f"""
         <h2 style="color:#247680;margin-top:0">🆕 تذكرة دعم فني جديدة</h2>
         <table style="width:100%;border-collapse:collapse;margin:12px 0">{_rows_ar(t)}</table>
-        <p style="color:#555">{t.get('description','')[:300]}</p>
+        {_desc_box(t, 'ar')}
         {buttons}
         """
         content_en = f"""
         <h2 style="color:#247680;margin-top:0">🆕 New IT Support Ticket</h2>
         <table style="width:100%;border-collapse:collapse;margin:12px 0">{_rows_en(t)}</table>
-        <p style="color:#555">{t.get('description','')[:300]}</p>
+        {_desc_box(t, 'en')}
         """
         html = _base_html(content_ar, content_en)
         try:

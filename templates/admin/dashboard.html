@@ -482,7 +482,7 @@ const I18N_EN = {
   'رفع عناصر فرعية (CSV/TXT)': 'Upload sub-items (CSV/TXT)',
   'تفاصيل التذكرة': 'Ticket Details', 'إغلاق النافذة': 'Close window',
   'مقدّم الطلب': 'Requested by', 'البريد': 'Email', 'الهاتف': 'Phone', 'الموقع': 'Location',
-  'الوصف': 'Description', 'نعم': 'Yes', 'لا': 'No',
+  'الوصف': 'Description', 'وصف المشكلة من مقدّم الطلب': 'Problem description', 'نعم': 'Yes', 'لا': 'No',
   'سجل المتابعة': 'Follow-up Log', 'إضافة تعليق': 'Add Comment', 'ملاحظة داخلية (لا تظهر لمقدم الطلب)': 'Internal note (hidden from requester)',
   'إرسال': 'Send', 'تعيين إلى': 'Assign to', '-- بلا تعيين --': '-- Unassigned --', 'حفظ التعيين': 'Save Assignment',
   'تعليق الإغلاق (اختياري)': 'Closing comment (optional)',
@@ -1419,7 +1419,7 @@ async function openDetail(id, focus) {
         <button class="btn btn-outline btn-sm" onclick="doSetPriority(${tk.id})">${t('حفظ')}</button>
       ` : `<span class="priority-${tk.priority}"><span class="priority-dot"></span>${priorityLabel(tk.priority)}</span>`}</div>
     </div>
-    ${tk.description ? `<div style="margin:8px 0"><div class="k" style="color:var(--muted);font-size:.72rem;font-weight:700">${t('الوصف')}</div><div style="white-space:pre-wrap;font-size:.85rem">${esc(tk.description)}</div></div>` : ''}
+    ${tk.description ? `<div style="margin:10px 0;background:#fff4dc;border-inline-start:5px solid #e0a100;border-radius:8px;padding:10px 14px"><div class="k" style="color:#8a5a00;font-size:.75rem;font-weight:700;margin-bottom:4px"><i class="fas fa-sticky-note"></i> ${t('وصف المشكلة من مقدّم الطلب')}</div><div dir="auto" style="white-space:pre-wrap;font-size:1rem;font-weight:600;color:#1a1a1a;line-height:1.7">${esc(tk.description)}</div></div>` : ''}
     ${tk.attachments.length ? `<div style="margin-bottom:10px">${tk.attachments.map((a,i)=>`<a href="${a}" target="_blank" class="btn btn-outline btn-sm" title="${t('المرفقات')}">${i+1} <i class="fas fa-paperclip"></i></a>`).join('')}</div>` : ''}
 
     ${canAssign ? `
