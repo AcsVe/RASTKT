@@ -424,7 +424,8 @@ const I18N_EN = {
   'إلى أن يُرفع شعار تظهر أيقونة النظام. PNG أو JPG أو WEBP.': 'Until a logo is uploaded, the system icon is shown. PNG, JPG or WEBP.',
   'تم حفظ الإعدادات': 'Settings saved',
   'البريد': 'Email', 'مضبوط': 'Configured', 'غير مضبوط': 'Not configured', 'المرسل:': 'Sender:',
-  'تُضبط هذه القيم في ملف ‎.env عند التثبيت (‎1_setup.bat‎) ولا تُعرض هنا.': 'These values are set in the .env file at installation (1_setup.bat) and are not shown here.',
+  'إرسال البريد الإلكتروني': 'Sending email', 'جاهز': 'Ready', 'غير جاهز': 'Not ready',
+  'لا تُرسَل رسائل البريد حالياً. تواصل مع مسؤول تقنية المعلومات لربط حساب بريد المؤسسة.': "Emails are not being sent at the moment. Contact the IT administrator to connect the school's mail account.",
   'تصدير المعلمين لنظام الغياب': 'Export the teachers for SAS',
   'ملف يُستورد في نظام غياب الطلبة (SAS) من «الموظفون ← إضافة قائمة أو استيراد ملف».': 'A file to import in the student-absence system (8.iajaward.org): Employees → Add a list or import a file.',
   'تصدير (Excel / CSV)': 'Export (Excel / CSV)',
@@ -632,11 +633,10 @@ function renderGraphStatus() {
   const box = document.getElementById('graphStatus');
   if (!box || !GRAPH) return;
   const badge = (on, text) => `<span class="badge ${on ? 'ok' : 'bad'}">${text}</span>`;
-  box.innerHTML = `<b><i class="fab fa-microsoft"></i> Microsoft Graph</b>
-    ${badge(GRAPH.ready, GRAPH.ready ? t('مضبوط') : t('غير مضبوط'))}
-    ${badge(GRAPH.tenant, 'Tenant ID')} ${badge(GRAPH.client, 'Client ID')} ${badge(GRAPH.secret, 'Client Secret')}
+  box.innerHTML = `<b><i class="fas fa-paper-plane"></i> ${t('إرسال البريد الإلكتروني')}</b>
+    ${badge(GRAPH.ready, GRAPH.ready ? t('جاهز') : t('غير جاهز'))}
     <span class="muted">${t('المرسل:')} <span class="mono">${esc(GRAPH.sender || '—')}</span></span>
-    <p class="hint">${t('تُضبط هذه القيم في ملف ‎.env عند التثبيت (‎1_setup.bat‎) ولا تُعرض هنا.')}</p>`;
+    ${GRAPH.ready ? '' : `<p class="hint">${t('لا تُرسَل رسائل البريد حالياً. تواصل مع مسؤول تقنية المعلومات لربط حساب بريد المؤسسة.')}</p>`}`;
 }
 document.addEventListener('change', e => {
   if (e.target.id !== 'brandLogo' || !e.target.files || !e.target.files[0]) return;
