@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const raw = (process.env.APP_URL || 'https://rastkt.onrender.com').trim().replace(/\/+$/, '');
+const raw = (process.env.APP_URL || 'https://1.iajaward.org').trim().replace(/\/+$/, '');
 let host;
 try { host = new URL(raw).host; } catch (e) { console.error('APP_URL is not a valid URL:', raw); process.exit(1); }
 

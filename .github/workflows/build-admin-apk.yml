@@ -7,8 +7,8 @@ name: Build Admin Android APK (support team)
 # (the admin panel's «تطبيق فريق الدعم (APK)» link uses it). The teachers' app (build-apk.yml) is separate.
 #
 # Server URL: the "app_url" input below (manual runs), else the repository
-# variable APP_URL (Settings → Secrets and variables → Actions → Variables),
-# else https://rastkt.onrender.com.
+# variable ADMIN_APP_URL (Settings → Secrets and variables → Actions → Variables),
+# else https://1.iajaward.org (the school server, where the staff accounts are).
 #
 # Signing (optional but recommended): without the secrets below the APK is
 # debug-signed with a throw-away key — it installs fine, but every build has
@@ -41,7 +41,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      APP_URL: ${{ inputs.app_url || vars.APP_URL || 'https://rastkt.onrender.com' }}
+      APP_URL: ${{ inputs.app_url || vars.ADMIN_APP_URL || 'https://1.iajaward.org' }}
     steps:
       - uses: actions/checkout@v4
 
