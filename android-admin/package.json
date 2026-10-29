@@ -1,0 +1,18 @@
+{
+  "name": "rastkt-admin-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android app of the IT support team (Capacitor) — opens the staff mobile app /admin/m/ of RASTKT",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/haptics": "^6.0.1",
+    "@capacitor/local-notifications": "^6.1.0",
+    "@capacitor/status-bar": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}

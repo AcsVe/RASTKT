@@ -54,6 +54,10 @@
       {% if config.APK_DOWNLOAD_URL and config.APK_DOWNLOAD_URL != '-' %}
       <a class="nav-item" href="{{ config.APK_DOWNLOAD_URL }}" id="apkBtn" style="display:none" download><i class="fab fa-android"></i> <span id="sbApkLbl"></span></a>
       {% endif %}
+      <a class="nav-item" href="/admin/m/" id="sbMobileLink"><i class="fas fa-mobile-screen"></i> <span id="sbMobileLbl"></span></a>
+      {% if config.ADMIN_APK_DOWNLOAD_URL and config.ADMIN_APK_DOWNLOAD_URL != '-' %}
+      <a class="nav-item" href="{{ config.ADMIN_APK_DOWNLOAD_URL }}" download><i class="fab fa-android"></i> <span id="sbAdminApkLbl"></span></a>
+      {% endif %}
     </div>
   </div>
 </nav>
@@ -439,7 +443,7 @@ const I18N_EN = {
   'بحث برقم التذكرة، الموضوع، أو اسم المعلم...': 'Search by serial, subject, or teacher name...',
   'كل التصنيفات': 'All Categories', 'كل الموظفين': 'All Staff', 'غير معينة (فلتر)': 'Unassigned only',
   'عرض المؤرشفة': 'Show archived',
-  'تطبيق أندرويد (APK)': 'Android app (APK)', 'تعليقات': 'Comments', 'تعليقات جديدة لم تُفتح بعد': 'New comments — not opened yet',
+  'تطبيق أندرويد (APK)': 'Android app (APK)', 'نسخة فريق الدعم للهاتف': 'Support team mobile view', 'تطبيق فريق الدعم (APK)': 'Support team app (APK)', 'تعليقات': 'Comments', 'تعليقات جديدة لم تُفتح بعد': 'New comments — not opened yet',
   'الرقم': 'Serial', 'المعلم': 'Teacher', 'التصنيف': 'Category', 'الموضوع': 'Subject',
   'الموظف المسؤول': 'Assignee', 'الحالة': 'Status', 'التاريخ': 'Date', 'إجراءات': 'Actions',
   'عرض': 'View', 'تعيين': 'Assign', 'إغلاق': 'Close', 'إعادة فتح': 'Reopen', 'أرشفة': 'Archive',
@@ -729,6 +733,9 @@ function paintStaticLabels() {
   document.getElementById('sbHomeLbl').textContent = t('صفحة تقديم الطلبات');
   document.getElementById('sbBellLbl').textContent = t('تفعيل إشعارات التذاكر الجديدة');
   document.getElementById('sbInstallLbl').textContent = t('تثبيت التطبيق');
+  document.getElementById('sbMobileLbl').textContent = t('نسخة فريق الدعم للهاتف');
+  const adminApkLbl = document.getElementById('sbAdminApkLbl');
+  if (adminApkLbl) adminApkLbl.textContent = t('تطبيق فريق الدعم (APK)');
   const apkLbl = document.getElementById('sbApkLbl');
   if (apkLbl) {
     apkLbl.textContent = t('تطبيق أندرويد (APK)');

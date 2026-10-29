@@ -51,6 +51,9 @@ def create_app():
     # Where the "Android app" button points (built by .github/workflows/build-apk.yml).
     # Set APK_DOWNLOAD_URL to override, or to an empty-looking value like "-" to hide the button.
     app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/latest/download/RASTKT.apk')
+    # تطبيق فريق الدعم (الإدارة) — android-admin/ ويُبنى في .github/workflows/build-admin-apk.yml
+    app.config['ADMIN_APK_DOWNLOAD_URL'] = os.environ.get(
+        'ADMIN_APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/download/admin-apk-latest/RASTKT-Admin.apk')
     app.config['LOGO_URL']      = os.environ.get('LOGO_URL', '/static/logo.png')
     # Both are only the starting values: Settings → identity overrides them (utils/branding.py).
     app.config['ACCENT_COLOR']  = os.environ.get('ACCENT_COLOR', '')
@@ -102,6 +105,8 @@ XEqPZq2IE3k9g455XAokrxI6N2LhLDhtu3SMlEulXPw9IcShiKeKf2xO
 
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    from blueprints.mobile import mobile_bp
+    app.register_blueprint(mobile_bp, url_prefix='/admin/m')    # تطبيق الإدارة على الهاتف
 
     # Served at the ROOT (not /static/sw.js) so its default scope covers the
     # whole site — a service worker's scope is limited to its own directory
