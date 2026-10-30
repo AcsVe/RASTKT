@@ -37,5 +37,4 @@ cd ~ && curl -sL -H "Authorization: Bearer $(cat ~/.iaj_github_token)" \
   bash ~/rastkt/standby/phone.sh setup && bash ~/rastkt/standby/phone.sh configure
 ```
 
-رمز GitHub يجب أن يشمل مستودع RASTKT. الأزرار: `TKT 1` تشغيل/إنهاء الطوارئ، `TKT 2` إرجاع للكمبيوتر،
-`TKT 3` الحالة، `TKT 4` تحديث الكود، `TKT 5` رفع بيانات الهاتف. القفل واللغة من أزرار `IAJ 0` و`IAJ 9`.
+رمز GitHub يجب أن يشمل مستودع RASTKT. الأزرار في Termux:Widget: زر «TKT» يفتح قائمة النظام (حالته الآن، تشغيل الطوارئ وإنهاؤها، الإرجاع للكمبيوتر، تحديث الكود، النسخ إلى Drive)، و«★ لوحة الأنظمة» تعرض حالة كل المواقع، و«★ قفل أو فتح الأزرار» و«★ English - عربي» للقفل واللغة (`standby/widgets.sh` و`standby/panel.sh` في IAJ).
