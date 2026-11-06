@@ -15,10 +15,6 @@ services:
         value: admin
       - key: ADMIN_PASS
         value: acs2024
-      - key: ORG_AR
-        value: مدرسة الرائد العربي
-      - key: ORG_EN
-        value: Al-Raed Al-Arabi School
       - key: LOGO_URL
         value: /static/logo.png
       - key: MS_TENANT_ID

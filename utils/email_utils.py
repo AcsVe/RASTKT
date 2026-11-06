@@ -207,8 +207,8 @@ def _base_html(content_ar, content_en, color='#247680'):
     logo = _abs_logo_url()
     from utils.branding import brand
     _b = brand()
-    org_ar = _b['org_ar'] or 'مدرسة الرائد العربي'
-    org_en = _b['org_en'] or 'Al-Raed Al-Arabi School'
+    org_ar = _b['org_ar'] or 'نظام طلبات الدعم الفني'
+    org_en = _b['org_en'] or ('IT Support Requests System' if not _b['org_ar'] else '')
     logo_html = (f'<img src="{logo}" alt="logo" width="120" style="display:block;margin:0 auto 6px;max-width:120px;height:auto">'
                  if logo else '')
 
@@ -219,7 +219,7 @@ def _base_html(content_ar, content_en, color='#247680'):
            style="width:480px;max-width:480px;background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;font-family:Tajawal,Arial,sans-serif;font-size:13px">
       <tr><td style="background:{color};padding:12px 16px;text-align:center">
         {logo_html}
-        <span style="color:#fff;font-size:13px;font-weight:700">{org_ar} — {org_en}</span>
+        <span style="color:#fff;font-size:13px;font-weight:700">{org_ar + ' — ' + org_en if org_en else org_ar}</span>
       </td></tr>
       <tr><td dir="rtl" style="padding:14px 16px 6px;text-align:right">{content_ar}</td></tr>
       <tr><td style="padding:0 16px"><div style="border-top:1px dashed #ddd"></div></td></tr>

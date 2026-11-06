@@ -180,7 +180,7 @@
       <div class="topbar-logo-chip{{ '' if brand.logo else ' sys-icon' }}"><img src="{{ brand.logo_url }}" alt="{{ 'شعار المؤسسة' if lang == 'ar' else 'Organization logo' }}"></div>
       <div class="topbar-titles">
         <span>{{ 'نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests System' }}</span>
-        <span class="topbar-org">{{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</span>
+        {% if brand.org_ar %}<span class="topbar-org">{{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</span>{% endif %}
         <span class="topbar-clock" id="topbarClock"></span>
       </div>
       <nav class="topbar-nav">

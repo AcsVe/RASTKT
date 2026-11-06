@@ -1,7 +1,7 @@
 {
   "name": "إدارة الطلبات — الدعم الفني",
   "short_name": "إدارة الطلبات",
-  "description": "لوحة تحكم نظام طلبات الدعم الفني - مدرسة الرائد العربي",
+  "description": "لوحة تحكم نظام طلبات الدعم الفني",
   "start_url": "/admin/",
   "scope": "/admin/",
   "display": "standalone",

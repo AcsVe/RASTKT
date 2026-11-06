@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0C67EC">
-  <title>{{ 'تسجيل الدخول' if lang == 'ar' else 'Sign in' }} — {{ org }}</title>
+  <title>{{ 'تسجيل الدخول' if lang == 'ar' else 'Sign in' }} {% if org %}— {{ org }}{% endif %}</title>
   <link rel="icon" href="/static/brand/system.svg" type="image/svg+xml">
   <link rel="icon" href="/static/icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -19,7 +19,7 @@
   <div class="auth-wrap"><div class="auth-card">
     <div class="auth-lang"><a class="lang-switch" href="?lang={{ 'en' if lang == 'ar' else 'ar' }}" lang="{{ 'en' if lang == 'ar' else 'ar' }}">{{ 'English' if lang == 'ar' else 'العربية' }}</a></div>
     <div class="logo-circle"><img src="{{ brand.logo_url }}" alt="" class="{{ '' if brand.logo else 'sys-icon' }}"></div>
-    <div class="brand-title">{{ org }}</div>
+    {% if org %}<div class="brand-title">{{ org }}</div>{% endif %}
     <div class="brand-sub">{{ 'نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests' }}</div>
     <h1>{{ 'تسجيل الدخول' if lang == 'ar' else 'Sign in' }}</h1>
 
@@ -38,7 +38,7 @@
     </form>
     <div class="links"><a href="/?lang={{ lang }}"><i class="fas fa-house" aria-hidden="true"></i> {{ 'صفحة تقديم الطلبات' if lang == 'ar' else 'Request page' }}</a></div>
   </div></div>
-  <footer class="auth-foot">© {{ now_year }} <b>{{ org }}</b></footer>
+  <footer class="auth-foot">© {{ now_year }} <b>{{ org or ('نظام طلبات الدعم الفني' if lang == 'ar' else 'IT Support Requests System') }}</b></footer>
   <script>
     document.addEventListener('click', function (e) {
       var eye = e.target.closest('[data-eye]');

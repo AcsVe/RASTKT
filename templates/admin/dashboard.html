@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ 'لوحة التحكم' if lang == 'ar' else 'Control Panel' }} — {{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</title>
+<title>{{ 'لوحة التحكم' if lang == 'ar' else 'Control Panel' }}{% set _org = brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) %}{% if _org %} — {{ _org }}{% endif %}</title>
 
 <link rel="manifest" href="/static/manifest-admin.json">
 <meta name="theme-color" content="#0C67EC">
@@ -610,7 +610,7 @@ document.addEventListener('click', e => {
 let BRAND = {{ {'orgAr': brand.org_ar, 'orgEn': brand.org_en, 'accent': brand.accent, 'logo': brand.logo, 'logoUrl': brand.logo_url}|tojson }};
 let GRAPH = null;
 function paintBrand() {
-  const org = AR ? BRAND.orgAr : (BRAND.orgEn || BRAND.orgAr);
+  const org = (AR ? BRAND.orgAr : (BRAND.orgEn || BRAND.orgAr)) || (AR ? 'نظام طلبات الدعم الفني' : 'IT Support Requests System');
   const el = document.getElementById('sbOrg');
   el.textContent = org; el.title = org;
   const logo = document.getElementById('sbLogo');
