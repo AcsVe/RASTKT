@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }} — {{ brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) }}</title>
+<title>{{ 'شاشة المتابعة' if lang == 'ar' else 'Monitoring' }}{% set _org = brand.org_ar if lang == 'ar' else (brand.org_en or brand.org_ar) %}{% if _org %} — {{ _org }}{% endif %}</title>
 
 <!-- PWA: Add to Home Screen (Android + iOS + Desktop) — same manifest/service
      worker as the rest of the site, so this screen can be installed and

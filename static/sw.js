@@ -8,8 +8,8 @@
 // connection. What this buys is a usable app shell while offline
 // (reading what was last loaded), not offline data entry.
 
-const SHELL_CACHE = 'raed-tickets-shell-v3';
-const PAGE_CACHE = 'raed-tickets-pages-v3';
+const SHELL_CACHE = 'raed-tickets-shell-v4';
+const PAGE_CACHE = 'raed-tickets-pages-v4';
 const CURRENT_CACHES = [SHELL_CACHE, PAGE_CACHE];
 
 const SHELL_ASSETS = [

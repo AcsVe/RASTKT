@@ -56,8 +56,8 @@ def create_app():
     # Seeds the first Administrator account (see models.init_db).
     app.config['ADMIN_USER']    = os.environ.get('ADMIN_USER', 'admin')
     app.config['ADMIN_PASS']    = os.environ.get('ADMIN_PASS', 'acs2024')
-    app.config['ORG_AR']        = os.environ.get('ORG_AR', 'مدرسة الرائد العربي')
-    app.config['ORG_EN']        = os.environ.get('ORG_EN', 'Al-Raed Al-Arabi School')
+    app.config['ORG_AR']        = os.environ.get('ORG_AR', '')
+    app.config['ORG_EN']        = os.environ.get('ORG_EN', '')
     # Where the "Android app" button points (built by .github/workflows/build-apk.yml).
     # Set APK_DOWNLOAD_URL to override, or to an empty-looking value like "-" to hide the button.
     app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/latest/download/RASTKT.apk')
