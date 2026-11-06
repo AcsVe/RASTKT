@@ -13,7 +13,7 @@ import sys
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
 sys.path.insert(0, os.path.join(BASE, 'ops'))
-from common import die, load_env  # noqa: E402
+from common import die, load_env, t  # noqa: E402
 
 
 def main():
@@ -21,15 +21,16 @@ def main():
     url = os.environ.get('NEON_DATABASE_URL', '').strip() or getpass.getpass('  الصق رابط Neon (DATABASE_URL من Render) ثم Enter: ').strip()
     url = ''.join(ch for ch in url if ch.isprintable()).strip()
     if not url:
-        die('تم الإلغاء')
+        die(t('تم الإلغاء', 'Cancelled'))
     if '://' not in url:
-        die('الرابط لم يُلصق صحيحاً. في PowerShell الصق بزر الفأرة الأيمن (وليس Ctrl+V) — لا يظهر شيء أثناء اللصق، ثم Enter')
+        die(t('الرابط لم يُلصق صحيحاً. في PowerShell الصق بزر الفأرة الأيمن (وليس Ctrl+V) — لا يظهر شيء أثناء اللصق، ثم Enter',
+              'The link was not pasted correctly. In PowerShell paste with the right mouse button (not Ctrl+V) - nothing shows while pasting - then Enter'))
     if url.startswith('postgres://'):
         url = 'postgresql+psycopg://' + url[len('postgres://'):]
     elif url.startswith('postgresql://'):
         url = 'postgresql+psycopg://' + url[len('postgresql://'):]
     if '--yes' not in sys.argv and input('  ستُستبدل بيانات هذا الجهاز ببيانات Neon. اكتب YES: ').strip() != 'YES':
-        die('تم الإلغاء')
+        die(t('تم الإلغاء', 'Cancelled'))
 
     from sqlalchemy import create_engine, inspect, select
     from app import app
@@ -38,7 +39,7 @@ def main():
     try:
         src_tables = set(inspect(src).get_table_names())
     except Exception as e:
-        die(f'تعذّر الاتصال بـ Neon: {e.__class__.__name__}')
+        die(t(f'تعذّر الاتصال بـ Neon: {e.__class__.__name__}', f'Could not connect to Neon: {e.__class__.__name__}'))
     with app.app_context():
         dst = db.engine
         tables = db.metadata.sorted_tables
