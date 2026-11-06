@@ -153,10 +153,14 @@ jobs:
 
       - name: Publish release (stable download link)
         env:
-          GH_TOKEN: ${{ github.token }}
+          # DOWNLOADS_TOKEN (رمز بصلاحية الكتابة على AcsVe/downloads): يُنشر الملف في مستودع التحميلات العام
+          # بوسم يبدأ باسم النظام؛ وبدونه يُنشر هنا كما كان (فلا يتوقف البناء قبل إضافة الرمز)
+          GH_TOKEN: ${{ secrets.DOWNLOADS_TOKEN || github.token }}
+          GH_REPO: ${{ secrets.DOWNLOADS_TOKEN && 'AcsVe/downloads' || github.repository }}
+          PFX: ${{ secrets.DOWNLOADS_TOKEN && 'rastkt-' || '' }}
         run: |
-          gh release delete admin-apk-latest --cleanup-tag --yes || true
-          gh release create admin-apk-latest out/RASTKT-Admin.apk \
+          gh release delete ${PFX}admin-apk-latest --cleanup-tag --yes || true
+          gh release create ${PFX}admin-apk-latest out/RASTKT-Admin.apk \
             --title "RASTKT support team app" \
             --notes "Support team Android app (opens $APP_URL/admin/m/). Built from ${GITHUB_SHA::7}." \
             --latest=false
