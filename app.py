@@ -60,10 +60,10 @@ def create_app():
     app.config['ORG_EN']        = os.environ.get('ORG_EN', '')
     # Where the "Android app" button points (built by .github/workflows/build-apk.yml).
     # Set APK_DOWNLOAD_URL to override, or to an empty-looking value like "-" to hide the button.
-    app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/latest/download/RASTKT.apk')
+    app.config['APK_DOWNLOAD_URL'] = os.environ.get('APK_DOWNLOAD_URL', 'https://github.com/AcsVe/downloads/releases/download/rastkt-apk-latest/RASTKT.apk')
     # تطبيق فريق الدعم (الإدارة) — android-admin/ ويُبنى في .github/workflows/build-admin-apk.yml
     app.config['ADMIN_APK_DOWNLOAD_URL'] = os.environ.get(
-        'ADMIN_APK_DOWNLOAD_URL', 'https://github.com/AcsVe/RASTKT/releases/download/admin-apk-latest/RASTKT-Admin.apk')
+        'ADMIN_APK_DOWNLOAD_URL', 'https://github.com/AcsVe/downloads/releases/download/rastkt-admin-apk-latest/RASTKT-Admin.apk')
     app.config['LOGO_URL']      = os.environ.get('LOGO_URL', '/static/logo.png')
     # Both are only the starting values: Settings → identity overrides them (utils/branding.py).
     app.config['ACCENT_COLOR']  = os.environ.get('ACCENT_COLOR', '')

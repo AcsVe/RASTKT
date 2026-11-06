@@ -142,4 +142,4 @@
 - **السرعة:** يفتح فوراً بآخر قائمة محفوظة على الجهاز ثم يحدّثها، ولا يحمّل أي مكتبة خارجية.
 - **البناء:** `android-admin/` و`.github/workflows/build-admin-apk.yml` (يُبنى تلقائياً عند تعديل `android-admin/`، أو يدوياً
   من Actions). تغيير الشاشات نفسها في `static/m/` و`blueprints/mobile.py` لا يحتاج بناء تطبيق جديد.
-- رابط التحميل الثابت: `releases/download/admin-apk-latest/RASTKT-Admin.apk`، ويظهر في القائمة الجانبية للوحة التحكم.
+- رابط التحميل الثابت: `https://github.com/AcsVe/downloads/releases/download/rastkt-admin-apk-latest/RASTKT-Admin.apk`، ويظهر في القائمة الجانبية للوحة التحكم.
