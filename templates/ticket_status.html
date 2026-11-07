@@ -33,11 +33,11 @@
   {% endif %}
 
   <div class="ticket-meta">
-    <div><div class="k">{{ 'مقدّم الطلب' if lang == 'ar' else 'Requested by' }}</div><div class="v">{{ ticket.teacherName }}</div></div>
-    <div><div class="k">{{ 'التصنيف' if lang == 'ar' else 'Category' }}</div><div class="v">{{ ticket.category }}{% if ticket.categoryItem %} / {{ ticket.categoryItem }}{% endif %}</div></div>
-    <div><div class="k">{{ 'الموضوع' if lang == 'ar' else 'Subject' }}</div><div class="v">{{ ticket.subject }}</div></div>
-    <div><div class="k">{{ 'الموقع' if lang == 'ar' else 'Location' }}</div><div class="v">{{ ticket.location or '—' }}</div></div>
-    <div><div class="k">{{ 'تاريخ التقديم' if lang == 'ar' else 'Submitted' }}</div><div class="v">{{ ticket.createdAt[:16].replace('T',' ') if ticket.createdAt else '' }}</div></div>
+    <div><div class="k">{{ 'مقدّم الطلب' if lang == 'ar' else 'Requested by' }}</div><div class="v" dir="auto">{{ ticket.teacherName }}</div></div>
+    <div><div class="k">{{ 'التصنيف' if lang == 'ar' else 'Category' }}</div><div class="v" dir="auto">{{ ticket.category }}{% if ticket.categoryItem %} / {{ ticket.categoryItem }}{% endif %}</div></div>
+    <div><div class="k">{{ 'الموضوع' if lang == 'ar' else 'Subject' }}</div><div class="v" dir="auto">{{ ticket.subject }}</div></div>
+    <div><div class="k">{{ 'الموقع' if lang == 'ar' else 'Location' }}</div><div class="v" dir="auto">{{ ticket.location or '—' }}</div></div>
+    <div><div class="k">{{ 'تاريخ التقديم' if lang == 'ar' else 'Submitted' }}</div><div class="v"><bdi dir="ltr">{{ ticket.createdAt[:16].replace('T',' ') if ticket.createdAt else '' }}</bdi></div></div>
     <div><div class="k">{{ 'الأولوية' if lang == 'ar' else 'Priority' }}</div><div class="v priority-{{ ticket.priority }}">{{ {'low':'منخفضة','medium':'متوسطة','high':'عالية'}[ticket.priority] if lang == 'ar' else {'low':'Low','medium':'Medium','high':'High'}[ticket.priority] }}</div></div>
   </div>
   {% if ticket.description %}
@@ -57,7 +57,7 @@
   {% for c in ticket.comments %}
     {% if c.authorRole != 'system' %}
     <div class="comment {{ 'staff' if c.authorRole == 'staff' else '' }}">
-      <div class="meta">{{ c.authorName or (('الدعم الفني' if lang=='ar' else 'IT Support') if c.authorRole=='staff' else ticket.teacherName) }} — {{ c.createdAt[:16].replace('T',' ') }}</div>
+      <div class="meta"><bdi>{{ c.authorName or (('الدعم الفني' if lang=='ar' else 'IT Support') if c.authorRole=='staff' else ticket.teacherName) }}</bdi> — <bdi dir="ltr">{{ c.createdAt[:16].replace('T',' ') }}</bdi></div>
       <div class="body">{{ c.body }}</div>
     </div>
     {% endif %}

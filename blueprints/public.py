@@ -322,6 +322,8 @@ def api_monitoring_stats():
     return jsonify({
         'total': total, 'byStatus': by_status, 'byPriority': by_priority,
         'byCategory': by_category, 'avgCloseHours': avg_close_hours,
+        # أسماء التصنيفات بالإنجليزية لشاشة العرض (مفتاح byCategory هو الاسم العربي المحفوظ مع كل طلب)
+        'categoryEn': {c.name_ar: (c.name_en or c.name_ar) for c in Category.query.all()},
     })
 
 

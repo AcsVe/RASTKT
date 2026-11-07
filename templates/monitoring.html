@@ -23,7 +23,7 @@
 :root {
   --primary: #0C67EC; --secondary: #0847B0; --secondary-dark: #0a3a8a;
   --accent: {{ brand.accent }};
-  --bg: #f0f4fa; --white: #fff; --text: #1e293b; --muted: #64748b; --border: #e3e9f2;
+  --bg: #f0f4fa; --white: #fff; --text: #1e293b; --muted: #566376; --border: #e3e9f2;
   --green: #16a34a; --red: #dc2626; --orange: #d97706; --blue: #0847B0;
 }
 * , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,11 +46,11 @@ header {
 header .brand { display: flex; align-items: center; gap: 12px; }
 header .brand img { height: 42px; background: #fff; border-radius: 8px; padding: 4px; }
 header h1 { font-size: 1.15rem; font-weight: 800; }
-header .sub { font-size: .78rem; opacity: .8; }
+header .sub { font-size: .8125rem; opacity: .8; }
 header .tools { display: flex; align-items: center; gap: 10px; }
 header button, header a.tool-btn {
   background: rgba(255,255,255,.15); border: none; color: #fff; padding: 7px 14px;
-  border-radius: 8px; font-weight: 700; font-size: .8rem; cursor: pointer; font-family: inherit;
+  border-radius: 8px; font-weight: 700; font-size: .8125rem; cursor: pointer; font-family: inherit;
   display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
 }
 header button:hover, header a.tool-btn:hover { background: rgba(255,255,255,.28); }
@@ -63,16 +63,16 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 @media (max-width: 640px) {
   header { padding: 8px 12px; gap: 6px; }
   header h1 { font-size: .95rem; }
-  header .sub { font-size: .68rem; opacity: .75; }
+  header .sub { font-size: .8125rem; opacity: .75; }
   header .brand img { height: 30px; }
   header .tools { gap: 6px; }
-  header button, header a.tool-btn { padding: 5px 10px; font-size: .72rem; }
+  header button, header a.tool-btn { padding: 5px 10px; font-size: .8125rem; }
   #clock { display: none; } /* redundant with the device's own clock on a small screen; frees a whole line */
   main { padding: 12px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
   .stat-card { padding: 10px; }
   .stat-val { font-size: 1.35rem; }
-  .stat-label { font-size: .7rem; margin-top: 2px; }
+  .stat-label { font-size: .8125rem; margin-top: 2px; }
 }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 18px; }
@@ -89,7 +89,7 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--primary); }
 .stat-card.green .stat-val { color: var(--green); } .stat-card.red .stat-val { color: var(--red); }
 .stat-card.orange .stat-val { color: var(--orange); } .stat-card.blue .stat-val { color: var(--blue); }
-.stat-label { font-size: .78rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
+.stat-label { font-size: .8125rem; color: var(--muted); font-weight: 700; margin-top: 4px; }
 /* SAS KPI look: a 5px coloured edge on the start side instead of the top border */
 .stat-card { border: 1px solid #e3e9f2; border-top-color: #e3e9f2 !important; position: relative; overflow: hidden; border-radius: 14px;
   box-shadow: 0 1px 2px rgba(15,42,82,.06), 0 6px 20px rgba(15,42,82,.08); --k: var(--primary); }
@@ -111,28 +111,28 @@ main { padding: 20px; max-width: 1400px; margin: 0 auto; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 th, td { padding: 9px 10px; text-align: start; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { color: var(--muted); font-weight: 800; font-size: .76rem; text-transform: uppercase; cursor: pointer; user-select: none; }
+th { color: var(--muted); font-weight: 800; font-size: .8125rem; text-transform: uppercase; cursor: pointer; user-select: none; }
 th:hover { color: var(--primary); }
-th .sort-arrow { font-size: .68rem; opacity: .55; margin-inline-start: 4px; }
+th .sort-arrow { font-size: .8125rem; opacity: .55; margin-inline-start: 4px; }
 th.sorted .sort-arrow { opacity: 1; color: var(--primary); }
 tr.ticket-row { cursor: pointer; }
 tr:hover td { background: #fafcfc; }
-.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .74rem; font-weight: 800; }
-.badge-open { background: #fdecea; color: var(--red); }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .8125rem; font-weight: 800; }
+.badge-open { background: #fdecea; color: #b91c1c; }
 .badge-in_progress { background: #eaf2fb; color: var(--blue); }
-.badge-waiting { background: #fff6e5; color: #b5820a; }
-.badge-closed { background: #e9f8ef; color: var(--green); }
-.priority-low { color: var(--green); } .priority-medium { color: #b5820a; } .priority-high { color: var(--red); font-weight: 800; }
+.badge-waiting { background: #fff6e5; color: #8a5a00; }
+.badge-closed { background: #e9f8ef; color: #15803d; }
+.priority-low { color: #15803d; } .priority-medium { color: #8a5a00; } .priority-high { color: var(--red); font-weight: 800; }
 
 .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .filters button {
-  background: #eef2f3; border: none; padding: 6px 14px; border-radius: 20px; font-size: .8rem;
+  background: #eef2f3; border: none; padding: 6px 14px; border-radius: 20px; font-size: .8125rem;
   font-weight: 700; cursor: pointer; font-family: inherit; color: var(--text);
 }
 .filters button.active { background: var(--primary); color: #fff; }
 
 .empty { text-align: center; color: var(--muted); padding: 24px; font-size: .85rem; }
-footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--muted); }
+footer { text-align: center; padding: 16px; font-size: .8125rem; color: var(--muted); }
 
 /* Ticket detail modal */
 .modal-overlay {
@@ -219,11 +219,11 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
     <h2><i class="fas fa-chart-pie"></i> <span id="reportsTitle"></span></h2>
     <div class="reports-grid">
       <div>
-        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byCategoryLbl"></h3>
+        <h3 style="font-size:.8125rem;color:var(--muted);margin-bottom:8px" id="byCategoryLbl"></h3>
         <div id="byCategoryChart"></div>
       </div>
       <div>
-        <h3 style="font-size:.8rem;color:var(--muted);margin-bottom:8px" id="byPriorityLbl"></h3>
+        <h3 style="font-size:.8125rem;color:var(--muted);margin-bottom:8px" id="byPriorityLbl"></h3>
         <div id="byPriorityChart"></div>
       </div>
     </div>
@@ -265,6 +265,8 @@ footer { text-align: center; padding: 16px; font-size: .74rem; color: var(--mute
 <script>
 let AR = new URLSearchParams(location.search).get('lang') !== 'en';
 let STATS = null, TICKETS = [], statusFilter = 'all';
+// اسم التصنيف بلغة الشاشة (المحفوظ مع الطلب هو الاسم العربي)
+const catName = (ar) => (AR || !STATS || !STATS.categoryEn) ? ar : (STATS.categoryEn[ar] || ar);
 let sortField = 'createdAt', sortDir = 'desc';
 
 const STR = {
@@ -354,7 +356,7 @@ function renderAll() {
 
     const maxCat = Math.max(1, ...Object.values(STATS.byCategory || {}));
     document.getElementById('byCategoryChart').innerHTML = Object.entries(STATS.byCategory || {}).map(([name, val]) => `
-      <div class="bar-row"><span class="lbl" title="${esc(name)}">${esc(name)}</span>
+      <div class="bar-row"><span class="lbl" title="${esc(catName(name))}">${esc(catName(name))}</span>
       <span class="track"><span class="fill" style="width:${(val / maxCat * 100).toFixed(0)}%"></span></span>
       <span class="val">${val}</span></div>
     `).join('') || `<div class="empty">${s('empty')}</div>`;
@@ -376,12 +378,12 @@ function renderAll() {
     const created = (tk.createdAt || '').replace('T', ' ').slice(0, 16);
     return `<tr class="ticket-row" onclick="showDetail(${tk.id})">
       <td><strong style="color:var(--primary)">#${tk.serial}</strong></td>
-      <td>${esc(tk.category)}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
+      <td dir="auto">${esc(catName(tk.category))}${tk.categoryItem ? ' / ' + esc(tk.categoryItem) : ''}</td>
       <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(tk.subject)}">${esc(tk.subject)}</td>
       <td><span class="priority-${tk.priority}">${s(tk.priority)}</span></td>
       <td>${esc(tk.assigneeName || s('unassigned'))}</td>
       <td><span class="badge badge-${tk.status}">${s(tk.status)}</span></td>
-      <td>${created}</td>
+      <td><span dir="ltr">${created}</span></td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" class="empty">${s('empty')}</td></tr>`;
 }
@@ -415,7 +417,7 @@ function showDetail(id) {
   if (!tk) return;
   document.getElementById('detailTitle').textContent = `${s('detailTitle')} #${tk.serial}`;
   const rows = [
-    [s('category'), esc(tk.category) || '—'],
+    [s('category'), esc(catName(tk.category)) || '—'],
     [s('categoryItem'), esc(tk.categoryItem) || '—'],
     [s('subject'), esc(tk.subject) || '—'],
     [s('priority'), s(tk.priority)],

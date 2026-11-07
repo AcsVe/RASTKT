@@ -1017,10 +1017,10 @@ function renderReports() {
       <div class="head" role="button" tabindex="0" aria-expanded="${open}" onclick="toggleReportsStaff(${row.staffId})">
         <div>
           <strong>${esc(row.fullName)}</strong>
-          <span style="color:var(--muted);font-size:.8rem;margin-inline-start:8px">${roleLbl(row.role)}${!row.active ? ' · ' + t('غير نشط') : ''}</span>
+          <span style="color:var(--muted);font-size:.8125rem;margin-inline-start:8px">${roleLbl(row.role)}${!row.active ? ' · ' + t('غير نشط') : ''}</span>
         </div>
         <div style="display:flex;align-items:center;gap:14px">
-          ${row.avgCloseHours != null ? `<span style="font-size:.78rem;color:var(--muted)">${t('متوسط ساعات الإغلاق')}: <b>${row.avgCloseHours}</b></span>` : ''}
+          ${row.avgCloseHours != null ? `<span style="font-size:.8125rem;color:var(--muted)">${t('متوسط ساعات الإغلاق')}: <b>${row.avgCloseHours}</b></span>` : ''}
           <strong style="color:var(--primary)">${row.total}</strong>
           <i class="fas fa-chevron-${open ? 'up' : (AR ? 'left' : 'down')}"></i>
         </div>
@@ -1028,7 +1028,7 @@ function renderReports() {
       ${open ? `
       <div style="padding:14px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
         <div>
-          <div style="font-weight:700;font-size:.8rem;margin-bottom:6px;color:var(--muted)">${t('حسب الحالة')}</div>
+          <div style="font-weight:700;font-size:.8125rem;margin-bottom:6px;color:var(--muted)">${t('حسب الحالة')}</div>
           <table style="width:100%;font-size:.82rem">
             <tr><td>${t('مفتوحة')}</td><td>${row.byStatus.open}</td></tr>
             <tr><td>${t('قيد المعالجة')}</td><td>${row.byStatus.in_progress}</td></tr>
@@ -1037,7 +1037,7 @@ function renderReports() {
           </table>
         </div>
         <div>
-          <div style="font-weight:700;font-size:.8rem;margin-bottom:6px;color:var(--muted)">${t('حسب الأولوية')}</div>
+          <div style="font-weight:700;font-size:.8125rem;margin-bottom:6px;color:var(--muted)">${t('حسب الأولوية')}</div>
           <table style="width:100%;font-size:.82rem">
             <tr><td>${t('منخفضة')}</td><td>${row.byPriority.low}</td></tr>
             <tr><td>${t('متوسطة')}</td><td>${row.byPriority.medium}</td></tr>
@@ -1045,11 +1045,11 @@ function renderReports() {
           </table>
         </div>
         <div>
-          <div style="font-weight:700;font-size:.8rem;margin-bottom:6px;color:var(--muted)">${t('حسب التصنيف')}</div>
+          <div style="font-weight:700;font-size:.8125rem;margin-bottom:6px;color:var(--muted)">${t('حسب التصنيف')}</div>
           <table style="width:100%;font-size:.82rem">${catRows}</table>
         </div>
         <div>
-          <div style="font-weight:700;font-size:.8rem;margin-bottom:6px;color:var(--muted)">${t('حسب الشهر')}</div>
+          <div style="font-weight:700;font-size:.8125rem;margin-bottom:6px;color:var(--muted)">${t('حسب الشهر')}</div>
           <table style="width:100%;font-size:.82rem">${monthRows}</table>
         </div>
       </div>
@@ -1410,7 +1410,7 @@ async function openDetail(id, focus) {
       <button class="modal-close" onclick="closeDetail()" title="${t('إغلاق النافذة')}" aria-label="${t('إغلاق النافذة')}"><i class="fas fa-xmark"></i></button>
     </div>
     <span class="badge badge-${tk.status}">${statusLabel(tk.status)}</span>
-    ${tk.mergedIntoSerial ? `<span style="font-size:.8rem;color:var(--muted)"> — ${t('تم دمج هذه التذكرة مع #')}${tk.mergedIntoSerial}</span>` : ''}
+    ${tk.mergedIntoSerial ? `<span style="font-size:.8125rem;color:var(--muted)"> — ${t('تم دمج هذه التذكرة مع #')}${tk.mergedIntoSerial}</span>` : ''}
     <div class="detail-grid">
       <div><div class="k">${t('مقدّم الطلب')}</div>${esc(tk.teacherName)}</div>
       <div><div class="k">${t('البريد')}</div>${esc(tk.teacherEmail || '—')}</div>
@@ -1426,7 +1426,7 @@ async function openDetail(id, focus) {
         <button class="btn btn-outline btn-sm" onclick="doSetPriority(${tk.id})">${t('حفظ')}</button>
       ` : `<span class="priority-${tk.priority}"><span class="priority-dot"></span>${priorityLabel(tk.priority)}</span>`}</div>
     </div>
-    ${tk.description ? `<div style="margin:10px 0;background:#fff4dc;border-inline-start:5px solid #e0a100;border-radius:8px;padding:10px 14px"><div class="k" style="color:#8a5a00;font-size:.75rem;font-weight:700;margin-bottom:4px"><i class="fas fa-sticky-note"></i> ${t('وصف المشكلة من مقدّم الطلب')}</div><div dir="auto" style="white-space:pre-wrap;font-size:1rem;font-weight:600;color:#1a1a1a;line-height:1.7">${esc(tk.description)}</div></div>` : ''}
+    ${tk.description ? `<div style="margin:10px 0;background:#fff4dc;border-inline-start:5px solid #e0a100;border-radius:8px;padding:10px 14px"><div class="k" style="color:#8a5a00;font-size:.8125rem;font-weight:700;margin-bottom:4px"><i class="fas fa-sticky-note"></i> ${t('وصف المشكلة من مقدّم الطلب')}</div><div dir="auto" style="white-space:pre-wrap;font-size:1rem;font-weight:600;color:#1a1a1a;line-height:1.7">${esc(tk.description)}</div></div>` : ''}
     ${tk.attachments.length ? `<div style="margin-bottom:10px">${tk.attachments.map((a,i)=>`<a href="${a}" target="_blank" class="btn btn-outline btn-sm" title="${t('المرفقات')}">${i+1} <i class="fas fa-paperclip"></i></a>`).join('')}</div>` : ''}
 
     ${canAssign ? `
@@ -1540,14 +1540,14 @@ function renderCategories() {
   document.getElementById('categoriesList').innerHTML = CATEGORIES.map(c => `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-        <div><strong>${esc(AR ? c.nameAr : c.nameEn)}</strong> <span style="color:var(--muted);font-size:.8rem">(${esc(c.nameAr)} / ${esc(c.nameEn)})</span>
+        <div><strong>${esc(AR ? c.nameAr : c.nameEn)}</strong> <span data-content style="color:var(--muted);font-size:.8125rem">(<bdi>${esc(c.nameAr)}</bdi> / <bdi>${esc(c.nameEn)}</bdi>)</span>
           ${!c.active ? `<span class="badge" style="background:#eee;color:#888">${t('غير نشط')}</span>` : ''}
         </div>
         ${canManage ? `<div><button class="btn btn-outline btn-sm" onclick="toggleCategoryActive(${c.id}, ${!c.active})">${c.active ? t('غير نشط') : t('نشط')}</button>
           <button class="btn btn-red btn-sm" onclick="deleteCategory(${c.id})" title="${t('حذف')}"><i class="fas fa-trash"></i></button></div>` : ''}
       </div>
       <div style="margin-top:10px">
-        <div style="font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:6px">${t('العناصر الفرعية')}</div>
+        <div style="font-size:.8125rem;font-weight:700;color:var(--muted);margin-bottom:6px">${t('العناصر الفرعية')}</div>
         ${(c.items || []).map(i => `
           <span class="badge badge-role" style="margin:2px 4px 2px 0">${esc(AR ? i.nameAr : i.nameEn)}${(AR ? i.code : (i.codeEn || i.code)) ? ' ('+esc(AR ? i.code : (i.codeEn || i.code))+')' : ''}
             ${canManage ? `<a href="#" onclick="deleteCategoryItem(${i.id});return false" title="${t('حذف')}" style="margin-inline-start:6px;color:#c0392b">✕</a>` : ''}
@@ -1561,7 +1561,7 @@ function renderCategories() {
           <button class="btn btn-outline btn-sm" onclick="addCategoryItem(${c.id})">${t('إضافة عنصر فرعي')}</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-          <span style="font-size:.78rem;color:var(--muted);white-space:nowrap">${t('رفع عناصر فرعية (CSV/TXT)')}:</span>
+          <span style="font-size:.8125rem;color:var(--muted);white-space:nowrap">${t('رفع عناصر فرعية (CSV/TXT)')}:</span>
           <input type="file" accept=".csv,.txt" onchange="uploadCategoryItems(${c.id}, this)" style="max-width:220px">
         </div>` : ''}
       </div>
@@ -1932,12 +1932,12 @@ async function requestNotifyPermission() {
     + '.cmdk-ih{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.08)}'
     + '.cmdk-ih i{opacity:.55;font-size:16px}'
     + '.cmdk-ih input{flex:1;border:0;outline:0;background:transparent;font-size:16px;color:inherit;font-family:inherit}'
-    + '.cmdk-kbd{font-size:11px;opacity:.6;border:1px solid rgba(0,0,0,.2);border-radius:6px;padding:1px 6px;white-space:nowrap}'
+    + '.cmdk-kbd{font-size:13px;opacity:.6;border:1px solid rgba(0,0,0,.2);border-radius:6px;padding:1px 6px;white-space:nowrap}'
     + '.cmdk-list{max-height:52vh;overflow:auto;padding:6px}'
     + '.cmdk-it{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:9px;cursor:pointer}'
     + '.cmdk-it i{width:20px;text-align:center;opacity:.8}'
     + '.cmdk-it .cmdk-lbl{flex:1;font-size:14.5px}'
-    + '.cmdk-it .cmdk-grp{font-size:11.5px;opacity:.55}'
+    + '.cmdk-it .cmdk-grp{font-size:13px;opacity:.55}'
     + '.cmdk-it.sel,.cmdk-it:hover{background:rgba(12,103,236,.12)}'
     + '.cmdk-empty{padding:22px;text-align:center;opacity:.6;font-size:14px}'
     + '@media (prefers-color-scheme:dark){.cmdk-box{background:#13201f;color:#e7eef0;border-color:rgba(255,255,255,.1)}.cmdk-ih,.cmdk-it.sel,.cmdk-it:hover{border-color:rgba(255,255,255,.1)}.cmdk-it.sel,.cmdk-it:hover{background:rgba(255,255,255,.08)}.cmdk-kbd{border-color:rgba(255,255,255,.25)}}'
