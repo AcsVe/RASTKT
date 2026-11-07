@@ -82,7 +82,7 @@
 
   // ── helpers ──────────────────────────────────────────────────────────
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const COLORS = ['#0C67EC', '#7c3aed', '#0f9d58', '#e8710a', '#c2185b', '#00897b', '#5c6bc0', '#8d6e63'];
+  const COLORS = ['#0a58c9', '#6d28d9', '#0b7a43', '#b45309', '#ad1457', '#00695c', '#3f51b5', '#6d4c41'];   // تباين 4.5 على الأقل مع النص الأبيض
   const avColor = (s) => { let h = 0; for (const c of String(s || '?')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
   const initials = (s) => { const p = String(s || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase(); };
   const av = (name, cls = 'av') => `<span class="${cls}" style="background:${avColor(name)}" aria-hidden="true">${esc(initials(name))}</span>`;
@@ -203,13 +203,13 @@
       <div class="body">
         <div class="l1"><span class="who">${esc(x.teacherName)}</span><span class="mono">#${x.serial}</span><time>${esc(ago(x.activityAt))}</time></div>
         <h3>${esc(x.subject)}</h3>
-        <div class="snip">${last}</div>
+        <div class="snip" dir="auto">${last}</div>
         <div class="l3">${statusPill(x.status)}
           ${x.priority === 'high' ? `<span class="tag hi">${ic('flag')}${t('p_high')}</span>` : ''}
-          ${x.assigneeName ? `<span class="tag">${ic('user')}${esc(x.assigneeName)}</span>` : `<span class="tag">${t('unassigned')}</span>`}
+          ${x.assigneeName ? `<span class="tag">${ic('user')}<bdi>${esc(x.assigneeName)}</bdi></span>` : `<span class="tag">${t('unassigned')}</span>`}
           ${x.replies ? `<span class="tag">${ic('chat')}${x.replies}</span>` : ''}
           ${x.attachments ? `<span class="tag">${ic('clip')}${x.attachments}</span>` : ''}
-          ${x.location ? `<span class="tag">${ic('pin')}${esc(x.location)}</span>` : ''}
+          ${x.location ? `<span class="tag">${ic('pin')}<bdi>${esc(x.location)}</bdi></span>` : ''}
         </div>
       </div></button>`;
   }
