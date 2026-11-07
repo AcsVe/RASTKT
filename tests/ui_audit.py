@@ -100,6 +100,68 @@ def start_server(data, lang, port):
 PORTS = {'ar': 5391, 'en': 5392}
 servers = {k: start_server(os.path.join(OUT, f'data-{k}'), k, p) for k, p in PORTS.items()}
 PUBLIC = ['/', '/ticket', '/lookup', '/ticket/AUD00001', '/monitoring', '/admin/login']
+# فحص لغة الواجهة: النصوص الظاهرة ونصوص الإرشاد (placeholder وtitle وalt وaria-label) — يُنسخ إلى tests/ui_audit.py في كل نظام.
+# يرصد: نصاً يشبه الكود (أسماء متغيرات وملفات وقيم برمجية)، وكلمات عامية أو دخيلة في الواجهة العربية، ونص إرشاد بالإنجليزية
+# في الواجهة العربية أو بالعربية في الإنجليزية، وصورة بلا نص بديل.
+LANG_JS = r"""(args) => {
+  const [ui, okWords, checkArabic, scopeSel] = args;   // checkArabic: الواجهة الإنجليزية ببيانات إنجليزية
+  const out = []; const seen = new Set();
+  const add = (k, m) => { if (!seen.has(k)) { seen.add(k); out.push(m.slice(0, 150)); } };
+  const AR = /[؀-ۿ]/;
+  const ok = new Set(['iOS', 'iPhone', 'iPad', 'macOS', 'iCloud', 'eSchool', 'YouTube', 'WhatsApp', 'PayPal', 'OneDrive',
+                      'SharePoint', 'PowerPoint', 'GitHub', 'MenaPAY', 'MenaITech', 'ZKTeco', 'BellPlayer', 'JavaScript'].concat(okWords || []));
+  // يُحذف البريد والروابط والنطاقات قبل الفحص: ليست كوداً
+  const clean = (t) => t.replace(/\S+@\S+|https?:\/\/\S*|\b[\w.-]+\.(org|com|net|edu|jo|test|gov)\b\S*/gi, ' ');
+  const CODE = [
+    [/\b[a-z][a-z0-9]*_[a-z0-9_]+\b/, 'snake_case'],
+    [/\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/, 'variable name'],
+    [/\b[a-z]+[A-Z][A-Za-z]+\b/, 'camelCase'],
+    [/\{\{|\}\}|\{%|%\}|\$\{|<\/?[a-z]+>/, 'template code'],
+    [/^(undefined|null|NaN)$|\b(undefined|NaN|Traceback|TypeError|KeyError|ValueError)\b|\[object /, 'program value'],
+    [/\b[\w-]+\.(py|bat|env|db|sqlite|json|js|css|html|ps1|sql|log|ini|cfg)\b/i, 'file name'],
+    [/\b(HTTP|Error|errno|status)\s*\d{3}\b|\bSQLITE_|\bOperationalError\b/i, 'error code'],
+  ];
+  // None/True/False كلمات إنجليزية سليمة في الواجهة الإنجليزية؛ وفي العربية تعني قيمة برمجية تسرّبت
+  if (ui === 'ar') CODE.push([/^(None|True|False)$/, 'program value']);
+  const codeLike = (t) => { t = clean(t); for (const [re, name] of CODE) { const m = t.match(re); if (m && !ok.has(m[0])) return `${name} «${m[0]}»`; } return null; };
+  // عامي أو دخيل (القاعدة: «إذا/إن» لا «لو»، «فقط» لا «بس»، «الخادم» لا «السيرفر»، «الهاتف» لا «الموبايل»...)
+  const COLLOQ = /(?:^|[\s،؛.؟!«(\/])(لو|بس|اللي|إللي|فاضي|فاضية|هيك|شو|مش|كمان|هلق|هلأ|منيح|ليش|وين|هاي|هاد|هادا|السيرفر|سيرفر|الموبايل|موبايل|تيمز|الباسورد|باسورد|يوزر|اليوزر|اللوجو|لوجو|الداتا|داتا|لينك|اللينك|فايل|الفايل|ايميل|إيميل|الإيميل|الايميل|اوكي|أوكي|نزّل|نزّلها|حمّلها|سيستم|السيستم|أبديت|ابديت)(?=$|[\s،؛.؟!»):\/])/;
+  const LATIN_WORD = /\b[A-Za-z]{3,}\b/g;
+  const check = (el, where, t) => {
+    if (!t || !t.trim()) return;
+    t = t.replace(/\s+/g, ' ').trim();
+    const tag = `${el.tagName}.${(el.className && el.className.baseVal === undefined ? el.className : '')}`.slice(0, 40);
+    const c = codeLike(t); if (c) add('c' + where + t, `code-like ${c} in ${where} «${t.slice(0, 60)}» ${tag}`);
+    if (ui === 'ar') {
+      const m = t.match(COLLOQ); if (m) add('q' + t, `colloquial «${m[1]}» in ${where} «${t.slice(0, 60)}» ${tag}`);
+      if (where !== 'text' && !AR.test(t)) {   // نص إرشاد كله بالإنجليزية (الرموز والأسماء بجانب العربية مقبولة)
+        const latin = (clean(t).match(LATIN_WORD) || []).filter((w) => !ok.has(w) && !/^x+$/i.test(w) && !/^(PDF|Excel|Word|CSV|QR|Microsoft|Google|Outlook|Teams|Android|Windows|Chrome|Edge|Wi|Fi|USB|SMS|API|URL|IP|PIN|OTP|ID|Cloudflare|Dahua|Render|Drive|Gmail|Zoom|Forms|Office|Apple|Huawei|Samsung)$/i.test(w));
+        if (latin.length) add('l' + where + t, `English «${latin.slice(0, 3).join(' ')}» in ${where} of the Arabic interface «${t.slice(0, 60)}» ${tag}`);
+      }
+    } else if (checkArabic && where !== 'text' && AR.test(t) && !el.closest('[data-content]') && !(okWords || []).includes(t)) {
+      add('a' + where + t, `Arabic in ${where} of the English interface «${t.slice(0, 60)}» ${tag}`);
+    }
+  };
+  const scope = (scopeSel && document.querySelector(scopeSel)) || document.body;
+  scope.querySelectorAll('*').forEach((el) => {
+    if (el.closest('script,style,code,pre,kbd,noscript,template,textarea,[data-content],[data-raw]')) return;   // textarea: نص يكتبه المستخدم أو رمز تضمين للنسخ
+    const s = getComputedStyle(el); if (s.display === 'none' && !el.closest('select')) return;
+    [...el.childNodes].forEach((n) => { if (n.nodeType === 3) check(el, 'text', n.textContent); });
+    for (const a of ['placeholder', 'title', 'alt', 'aria-label']) if (el.hasAttribute(a)) check(el, a, el.getAttribute(a));
+    if (el.matches('input[type=submit],input[type=button]')) check(el, 'button', el.value);
+    if (el.tagName === 'IMG' && !el.hasAttribute('alt')) add('i' + el.src, `image without alt text ${el.src.split('/').pop().slice(0, 50)}`);
+  });
+  check(document.documentElement, 'title', document.title);
+  return out;
+}"""
+
+
+def run(page, scope, ui, check_ar):
+    res = page.evaluate(AUDIT_JS, [scope, check_ar, UNTRANSLATED_OK])
+    res['lang'] = page.evaluate(LANG_JS, [ui, UNTRANSLATED_OK, check_ar, scope])
+    return res
+
+
 report = []
 try:
     with sync_playwright() as p:
@@ -118,7 +180,7 @@ try:
                 for u in PUBLIC:
                     page.goto(f'{base}{u}?lang={ui}', wait_until='networkidle')
                     page.wait_for_timeout(500)
-                    report.append((vp_name, ui, data, u, page.evaluate(AUDIT_JS, ['body', check_ar, UNTRANSLATED_OK]), list(errs)))
+                    report.append((vp_name, ui, data, u, run(page, 'body', ui, check_ar), list(errs)))
                     errs.clear()
                 page.fill('#username', 'admin')
                 page.fill('#password', 'audit-pass-123')
@@ -131,13 +193,13 @@ try:
                     except Exception:
                         pass
                     page.wait_for_timeout(500)
-                    report.append((vp_name, ui, data, t, page.evaluate(AUDIT_JS, [f'#tab-{t}', check_ar, UNTRANSLATED_OK]), list(errs)))
+                    report.append((vp_name, ui, data, t, run(page, f'#tab-{t}', ui, check_ar), list(errs)))
                     errs.clear()
                     if os.environ.get('SHOTS'):
                         page.screenshot(path=os.path.join(OUT, f'{vp_name}-{ui}{data}-{t}.jpg'), type='jpeg', quality=45)
                 page.goto(f'{base}/admin/m/', wait_until='networkidle')
                 page.wait_for_timeout(1200)
-                report.append((vp_name, ui, data, '/admin/m/', page.evaluate(AUDIT_JS, ['body', check_ar, UNTRANSLATED_OK]), list(errs)))
+                report.append((vp_name, ui, data, '/admin/m/', run(page, 'body', ui, check_ar), list(errs)))
                 errs.clear()
                 ctx.close()
         browser.close()
@@ -155,7 +217,7 @@ for vp_name, ui, data, t, res, errs in report:
     if res['overflow'] > 2:
         issues.append(f"horizontal overflow {res['overflow']}px")
     issues += ['contrast ' + x for x in res['contrast']] + ['small ' + x for x in res['small']]
-    issues += ['direction ' + x for x in res['bidi']] + ['untranslated ' + x for x in res['untranslated']]
+    issues += ['direction ' + x for x in res['bidi']] + ['untranslated ' + x for x in res['untranslated']] + ['language ' + x for x in res.get('lang', [])]
     issues += ['JS ' + e for e in errs]
     if issues:
         bad += len(issues)
